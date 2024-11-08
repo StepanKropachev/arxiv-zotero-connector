@@ -89,29 +89,39 @@ class ArxivZoteroCollector:
                 logger.error(f"Failed to validate collection {collection_key}: {str(e)}")
                 raise ValueError(f"Invalid collection key: {collection_key}")
 
-    async def add_to_collection(self, item_key: str) -> bool:
+    def add_to_collection(self, item_key: str) -> bool:
         """
-        Add an item to a collection using direct API request.
-        Returns True if successful, False otherwise.
+        Add an item to a collection using Zotero API's addto_collection method.
+        
+        Args:
+            item_key (str): The key of the item to add
+            
+        Returns:
+            bool: True if successful, False otherwise
         """
         if not self.collection_key:
             return True
 
         try:
             logger.info(f"Adding item {item_key} to collection {self.collection_key}")
-            # Use direct API request
-            response = self.zot.request(
-                f'collections/{self.collection_key}/items',
-                method='POST',
-                payload={'items': [item_key]}
-            )
             
-            if response.status_code in (200, 201, 204):
+            # First get the item details
+            item = self.zot.item(item_key)
+            
+            # Use the official addto_collection method
+            success = self.zot.addto_collection(self.collection_key, item)
+            
+            if success:
                 logger.info(f"Successfully added item to collection")
                 return True
             else:
-                logger.error(f"Failed to add to collection. Status: {response.status_code}, Response: {response.text}")
+                logger.error(f"Failed to add to collection")
                 return False
+
+        except Exception as e:
+            logger.error(f"Error adding to collection: {str(e)}")
+            logger.debug(traceback.format_exc())
+            return False
 
         except Exception as e:
             logger.error(f"Error adding to collection: {str(e)}")
