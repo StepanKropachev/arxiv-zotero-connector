@@ -81,6 +81,13 @@ Logs are stored in `zotero_collector.log` and include operation tracking, error 
 
 MIT License
 
+## Roadmap
+
+[] Implement CRON job functionality
+[] Develop intelligent paper summarization
+[] Build intuitive user interface
+[] Optimize Zotero storage management
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
