@@ -83,10 +83,10 @@ MIT License
 
 ## Roadmap
 
-[] Implement CRON job functionality
-[] Develop intelligent paper summarization
-[] Build intuitive user interface
-[] Optimize Zotero storage management
+ - Implement CRON job functionality
+ - Develop intelligent paper summarization
+ - Build intuitive user interface
+ - Optimize Zotero storage management
 
 ## Contributing
 
