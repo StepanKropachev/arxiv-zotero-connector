@@ -38,4 +38,4 @@ ENV/
 *.swo
 
 # Downloaded papers
-~/Downloads/arxiv_papers/
+**/arxiv_papers/

@@ -9,6 +9,8 @@ import pytz
 import logging
 from urllib.parse import urljoin
 import traceback
+from pathlib import Path
+from dotenv import load_dotenv
 
 # Set up logging
 logging.basicConfig(
@@ -24,6 +26,48 @@ logger = logging.getLogger(__name__)
 class ZoteroAPIError(Exception):
     """Custom exception for Zotero API errors"""
     pass
+
+def load_credentials(env_path: str = None) -> dict:
+    """
+    Load credentials from environment variables or .env file
+    Returns a dictionary containing the credentials
+    """
+    try:
+        # If env_path is provided, load from that file
+        if env_path:
+            if not os.path.exists(env_path):
+                raise FileNotFoundError(f"Environment file not found: {env_path}")
+            load_dotenv(env_path)
+        else:
+            # Try to load from default locations
+            env_locations = [
+                '.env',
+                Path.home() / '.arxiv-zotero' / '.env',
+                Path('/etc/arxiv-zotero/.env')
+            ]
+            
+            for loc in env_locations:
+                if os.path.exists(loc):
+                    load_dotenv(loc)
+                    logger.info(f"Loaded environment from {loc}")
+                    break
+
+        # Required credentials
+        required_vars = ['ZOTERO_LIBRARY_ID', 'ZOTERO_API_KEY']
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+        return {
+            'library_id': os.getenv('ZOTERO_LIBRARY_ID'),
+            'api_key': os.getenv('ZOTERO_API_KEY'),
+            'collection_key': os.getenv('COLLECTION_KEY')  # Optional
+        }
+
+    except Exception as e:
+        logger.error(f"Error loading credentials: {str(e)}")
+        raise
 
 class ArxivZoteroCollector:
     def __init__(self, zotero_library_id: str, zotero_api_key: str, collection_key: str = None):
@@ -189,39 +233,6 @@ class ArxivZoteroCollector:
             logger.debug(traceback.format_exc())
             return False
 
-    def run_collection(self, keywords: List[str], max_results: int = 50, 
-                      days_back: int = 7, download_pdfs: bool = True):
-        """
-        Run the complete collection process with improved error handling.
-        """
-        try:
-            papers = self.search_arxiv(keywords, max_results, days_back)
-            logger.info(f"Found {len(papers)} papers matching your keywords")
-
-            successful = 0
-            failed = 0
-
-            for paper in papers:
-                try:
-                    logger.info(f"Processing paper: {paper['title']}")
-                    if self.process_paper(paper, download_pdfs):
-                        successful += 1
-                    else:
-                        failed += 1
-                    time.sleep(1)  # Rate limiting
-                except Exception as e:
-                    failed += 1
-                    logger.error(f"Error processing paper {paper['title']}: {str(e)}")
-                    continue
-
-            logger.info(f"Collection complete. Successfully processed {successful} papers. Failed: {failed}")
-            return successful, failed
-
-        except Exception as e:
-            logger.error(f"Error in run_collection: {str(e)}")
-            logger.debug(traceback.format_exc())
-            return 0, 0
-
     def search_arxiv(self, keywords: List[str], max_results: int = 50, 
                     days_back: int = 7) -> List[Dict]:
         """
@@ -259,15 +270,52 @@ class ArxivZoteroCollector:
             logger.debug(traceback.format_exc())
             return []
 
-# Example usage
-if __name__ == "__main__":
-    ZOTERO_LIBRARY_ID = "your_library_id"
-    ZOTERO_API_KEY = "your_API_key"
-    COLLECTION_KEY = "your_collection_ID"
+    def run_collection(self, keywords: List[str], max_results: int = 50, 
+                      days_back: int = 7, download_pdfs: bool = True):
+        """
+        Run the complete collection process with improved error handling.
+        """
+        try:
+            papers = self.search_arxiv(keywords, max_results, days_back)
+            logger.info(f"Found {len(papers)} papers matching your keywords")
 
+            successful = 0
+            failed = 0
+
+            for paper in papers:
+                try:
+                    logger.info(f"Processing paper: {paper['title']}")
+                    if self.process_paper(paper, download_pdfs):
+                        successful += 1
+                    else:
+                        failed += 1
+                    time.sleep(1)  # Rate limiting
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"Error processing paper {paper['title']}: {str(e)}")
+                    continue
+
+            logger.info(f"Collection complete. Successfully processed {successful} papers. Failed: {failed}")
+            return successful, failed
+
+        except Exception as e:
+            logger.error(f"Error in run_collection: {str(e)}")
+            logger.debug(traceback.format_exc())
+            return 0, 0
+
+if __name__ == "__main__":
     try:
-        collector = ArxivZoteroCollector(ZOTERO_LIBRARY_ID, ZOTERO_API_KEY, COLLECTION_KEY)
+        # Load credentials from environment
+        credentials = load_credentials()
         
+        # Initialize collector with loaded credentials
+        collector = ArxivZoteroCollector(
+            zotero_library_id=credentials['library_id'],
+            zotero_api_key=credentials['api_key'],
+            collection_key=credentials['collection_key']
+        )
+        
+        # Define search parameters
         keywords = [
             "multi-agent systems",
             "moral agents AI",
@@ -275,6 +323,7 @@ if __name__ == "__main__":
             "AI policy learning"
         ]
 
+        # Run collection
         successful, failed = collector.run_collection(
             keywords=keywords,
             max_results=5,
