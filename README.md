@@ -39,7 +39,27 @@ ZOTERO_LIBRARY_ID=your_library_id
 ZOTERO_API_KEY=your_api_key
 COLLECTION_KEY=your_collection_key  # Optional
 ```
+### How to get your_library_id
+1. Go to https://www.zotero.org/settings/
+2. Go to *Security* in the left side-bar
+3. Scroll down to *Applications*
+4. See the text: User ID: Your user ID for use in API calls is XXXXXX
+5. XXXXXX - is your library_id
 
+### How to get your_api_key
+1. Go to https://www.zotero.org/settings/
+2. Go to *Security* in the left side-bar
+3. Scroll down to *Applications*
+4. Press *Create new private key*
+5. Name it and give it all the permissions to read and write
+6. Press *Save Key*
+
+### How to get your_collection_key
+The easiest way is to:
+1. Go to you web library in Zotero
+2. Press on the folder in the sidebar
+3. In the URL you'll see the collection key (like: XXX1XXX0)
+   
 ## Usage
 
 ```python
