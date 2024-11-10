@@ -1,15 +1,28 @@
 # ArXiv-Zotero Connector
 
-A Python tool to automatically collect ArXiv papers and add them to your Zotero library based on specified keywords.
+A high-performance Python tool to automatically collect ArXiv papers and add them to your Zotero library with rich metadata support.
 
 ## Features
 
-- Search ArXiv papers based on keywords
-- Automatically create Zotero entries with full metadata
-- Download PDF files and attach them to Zotero entries
-- Organize papers into specific Zotero collections
+- Asynchronous paper processing for improved performance
+- Intelligent metadata mapping with configurable field definitions
+- Advanced search capabilities for ArXiv papers based on keywords
+- Automated Zotero entry creation with comprehensive metadata handling
+- Parallel PDF download and attachment system
+- Smart collection organization in Zotero
 - Configurable search parameters (time range, max results)
-- Robust error handling and logging
+- Connection pooling and rate limiting for robust API interaction
+- Comprehensive error handling and logging
+
+## Architecture
+
+The connector uses a modular architecture with these key components:
+
+- `MetadataMapper`: Flexible metadata field mapping system
+- `ArxivZoteroCollector`: Core collection and processing engine
+- Configuration modules for easy customization:
+  - `metadata_config.py`: Core mapping infrastructure
+  - `arxiv_config.py`: ArXiv-specific field mappings
 
 ## Installation
 
@@ -39,37 +52,42 @@ ZOTERO_LIBRARY_ID=your_library_id
 ZOTERO_API_KEY=your_api_key
 COLLECTION_KEY=your_collection_key  # Optional
 ```
+
 ### How to get your_library_id
 1. Go to https://www.zotero.org/settings/
-2. Go to *Security* in the left side-bar
+2. Navigate to *Security* in the left side-bar
 3. Scroll down to *Applications*
-4. See the text: User ID: Your user ID for use in API calls is XXXXXX
-5. XXXXXX - is your library_id
+4. Find your User ID in: "Your user ID for use in API calls is XXXXXX"
 
 ### How to get your_api_key
 1. Go to https://www.zotero.org/settings/
-2. Go to *Security* in the left side-bar
+2. Navigate to *Security* in the left side-bar
 3. Scroll down to *Applications*
-4. Press *Create new private key*
-5. Name it and give it all the permissions to read and write
-6. Press *Save Key*
+4. Click *Create new private key*
+5. Name it and grant all read/write permissions
+6. Save the generated key
 
 ### How to get your_collection_key
-The easiest way is to:
-1. Go to you web library in Zotero
-2. Press on the folder in the sidebar
-3. In the URL you'll see the collection key (like: XXX1XXX0)
+1. Open your Zotero web library
+2. Click on the target folder in the sidebar
+3. The collection key is in the URL (format: XXX1XXX0)
    
 ## Usage
 
 ```python
 from connector import ArxivZoteroCollector
+from metadata_config import MetadataMapper
+from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
+
+# Initialize the metadata mapper
+metadata_mapper = MetadataMapper(ARXIV_TO_ZOTERO_MAPPING)
 
 # Initialize the collector
 collector = ArxivZoteroCollector(
     zotero_library_id=credentials['library_id'],
     zotero_api_key=credentials['api_key'],
-    collection_key=credentials['collection_key']  # Optional
+    collection_key=credentials['collection_key'],  # Optional
+    metadata_mapper=metadata_mapper
 )
 
 keywords = [
@@ -78,36 +96,69 @@ keywords = [
     "agent decision making"
 ]
 
-successful, failed = collector.run_collection(
+# Asynchronously collect papers
+successful, failed = await collector.run_collection(
     keywords=keywords,
     max_results=5,
     days_back=7,
-    download_pdfs=True
+    download_pdfs=True,
+    concurrent_downloads=3  # Control concurrent operations
 )
 ```
 
 ## Configuration Parameters
 
+### Core Parameters
 - `keywords`: List of search terms for ArXiv
 - `max_results`: Maximum number of papers to process
 - `days_back`: How far back to search for papers
 - `download_pdfs`: Whether to download and attach PDFs
 
+### Performance Tuning
+- `concurrent_downloads`: Number of concurrent paper downloads (default: 3)
+- `request_delay`: Delay between API requests in seconds (default: 1)
+- `max_retries`: Maximum number of retry attempts for failed requests (default: 3)
+
+## Metadata Configuration
+
+You can customize metadata mapping by modifying `arxiv_config.py`:
+
+```python
+ARXIV_TO_ZOTERO_MAPPING = {
+    'id': 'archiveLocation',
+    'primary_category': 'extra',
+    'title': 'title',
+    # Add custom mappings here
+}
+```
+
 ## Error Handling and Logs
 
-Logs are stored in `zotero_collector.log` and include operation tracking, error messages, and API response information.
+The system provides comprehensive logging in `zotero_collector.log`:
+- Operation tracking with async context
+- Detailed error messages and stack traces
+- API response monitoring
+- Performance metrics
+
+## Roadmap
+
+- [ ] Intelligent paper summarization with AI integration
+- [ ] CRON job functionality for automated collection
+- [ ] User interface for easy configuration
+- [ ] Advanced storage management
+- [ ] Custom metadata transformation rules
+- [ ] Batch processing improvements
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
 
 ## License
 
 MIT License
-
-## Roadmap
-
- - Implement CRON job functionality
- - Develop intelligent paper summarization
- - Build intuitive user interface
- - Optimize Zotero storage management
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
