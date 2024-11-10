@@ -353,7 +353,7 @@ if __name__ == "__main__":
             keywords = ["multi-agent systems"]
             successful, failed = await collector.run_collection_async(
                 keywords=keywords,
-                max_results=50,
+                max_results=1,
                 days_back=7,
                 download_pdfs=True
             )

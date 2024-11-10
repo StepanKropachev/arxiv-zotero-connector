@@ -3,3 +3,5 @@ pyzotero
 requests
 pytz
 python-dotenv
+asyncio
+aiohttp
