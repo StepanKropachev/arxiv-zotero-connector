@@ -157,15 +157,19 @@ class MetadataMapper:
         return None
 
     def transform_extra(self, extra_fields: Dict[str, Any]) -> str:
-        """Transform extra fields into a formatted string"""
-        extra_parts = []
-        
-        if 'comment' in extra_fields:
-            extra_parts.append(f"Comment: {extra_fields['comment']}")
-        if 'version' in extra_fields:
-            extra_parts.append(f"Version: v{extra_fields['version']}")
+            """Transform extra fields into a formatted string"""
+            extra_parts = []
             
-        return '\n'.join(extra_parts)
+            if 'arxiv_id' in extra_fields and extra_fields['arxiv_id']:
+                extra_parts.append(f"arXiv: {extra_fields['arxiv_id']}")
+            if 'primary_category' in extra_fields and extra_fields['primary_category']:
+                extra_parts.append(f"Primary Category: {extra_fields['primary_category']}")
+            if 'comment' in extra_fields and extra_fields['comment']:
+                extra_parts.append(f"Comment: {extra_fields['comment']}")
+            if 'version' in extra_fields and extra_fields['version']:
+                extra_parts.append(f"Version: v{extra_fields['version']}")
+                
+            return '\n'.join(extra_parts)
 
     def get_current_date(self, _: Any = None) -> str:
         """Get current date in Zotero format"""
@@ -187,10 +191,19 @@ class MetadataMapper:
             for zotero_field, mapping in self.mapping_config.items():
                 try:
                     source_field = mapping['source_field']
+                    required = mapping.get('required', False)
+                    use_default = mapping.get('use_default', False)
                     
-                    # Handle fields with default values
-                    if source_field is None and 'default_value' in mapping:
-                        mapped_data[zotero_field] = mapping['default_value']
+                    # Handle fields with None source_field
+                    if source_field is None:
+                        if use_default:
+                            if 'default_value' in mapping:
+                                mapped_data[zotero_field] = mapping['default_value']
+                            elif 'transformer' in mapping:
+                                transformer = getattr(self, mapping['transformer'])
+                                value = transformer(None)
+                                if value is not None:
+                                    mapped_data[zotero_field] = value
                         continue
                     
                     # Handle multiple source fields
@@ -198,7 +211,7 @@ class MetadataMapper:
                         value = {field: source_data.get(field) for field in source_field}
                     else:
                         if source_field not in source_data:
-                            if mapping.get('required', False):
+                            if required:
                                 raise ValueError(f"Required field '{source_field}' not found in source data")
                             continue
                         value = source_data[source_field]
@@ -213,7 +226,7 @@ class MetadataMapper:
                 
                 except Exception as field_error:
                     logger.warning(f"Error mapping field '{zotero_field}': {str(field_error)}")
-                    if mapping.get('required', False):
+                    if required:
                         raise
             
             return mapped_data

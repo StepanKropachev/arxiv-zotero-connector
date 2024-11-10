@@ -95,16 +95,49 @@ class ArxivZoteroCollector:
     def _prepare_arxiv_metadata(self, result: arxiv.Result) -> Dict:
         """
         Convert arxiv.Result into a metadata dictionary suitable for mapping.
+        Handles missing fields gracefully and ensures all required fields are present.
         """
-        return {
-            'title': result.title,
-            'authors': [author.name for author in result.authors],
-            'abstract': result.summary,
-            'arxiv_url': result.entry_id,
-            'published': result.published,
-            'categories': result.categories,
-            'pdf_url': result.pdf_url
-        }
+        try:
+            # Extract authors while handling possible missing data
+            authors = []
+            for author in getattr(result, 'authors', []):
+                try:
+                    authors.append(author.name)
+                except AttributeError:
+                    continue
+
+            # Get the arXiv ID from the entry_id URL if available
+            arxiv_id = getattr(result, 'id', '')
+            if not arxiv_id and hasattr(result, 'entry_id'):
+                # Extract ID from URL like 'http://arxiv.org/abs/2311.xxxxx'
+                arxiv_id = result.entry_id.split('/')[-1]
+
+            return {
+                # Basic metadata (required fields)
+                'title': getattr(result, 'title', ''),
+                'authors': authors,
+                'arxiv_url': getattr(result, 'entry_id', ''),
+                'abstract': getattr(result, 'summary', ''),
+                'published': getattr(result, 'published', None),
+                'arxiv_id': arxiv_id,
+                
+                # Additional metadata (optional fields)
+                'categories': getattr(result, 'categories', []),
+                'primary_category': getattr(result, 'primary_category', None),
+                'pdf_url': getattr(result, 'pdf_url', None),
+                'doi': getattr(result, 'doi', None),
+                'journal_ref': getattr(result, 'journal_ref', None),
+                'comment': getattr(result, 'comment', None),
+                'version': getattr(result, 'version', None),
+                'license': getattr(result, 'license', None),
+                
+                # Add fields that have default values in config
+                'archive': 'arXiv',  # Match default_value in config
+                'libraryCatalog': 'arXiv.org'  # Match default_value in config
+            }
+        except Exception as e:
+            logger.error(f"Error preparing metadata for paper: {str(e)}")
+            return {}
 
     def create_zotero_item(self, paper: Dict) -> Optional[str]:
         """
@@ -297,16 +330,13 @@ if __name__ == "__main__":
         
         # Define search parameters
         keywords = [
-            "multi-agent systems",
-            "moral agents AI",
-            "agent decision making",
-            "AI policy learning"
+            "multi-agent systems"
         ]
 
         # Run collection
         successful, failed = collector.run_collection(
             keywords=keywords,
-            max_results=5,
+            max_results=50,
             days_back=7,
             download_pdfs=True
         )

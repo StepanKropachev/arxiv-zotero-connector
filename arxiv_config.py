@@ -1,11 +1,9 @@
-from typing import Dict, Any
-
 ARXIV_TO_ZOTERO_MAPPING = {
-    # Basic metadata
+    # Basic metadata (required fields)
     'title': {
         'source_field': 'title',
         'required': True,
-        'transformer': 'clean_latex_markup'  # New transformer to clean LaTeX markup
+        'transformer': 'clean_latex_markup'
     },
     'creators': {
         'source_field': 'authors',
@@ -16,18 +14,18 @@ ARXIV_TO_ZOTERO_MAPPING = {
         'source_field': 'arxiv_url',
         'required': True
     },
-    'abstractNote': {
-        'source_field': 'abstract',
-        'required': False,
-        'transformer': 'clean_latex_markup'  # Clean LaTeX markup from abstract
-    },
     'date': {
         'source_field': 'published',
         'required': True,
         'transformer': 'transform_date'
     },
     
-    # Additional metadata
+    # Additional metadata (all optional)
+    'abstractNote': {
+        'source_field': 'abstract',
+        'required': False,
+        'transformer': 'clean_latex_markup'
+    },
     'DOI': {
         'source_field': 'doi',
         'required': False
@@ -57,40 +55,39 @@ ARXIV_TO_ZOTERO_MAPPING = {
         'required': False,
         'transformer': 'extract_pages'
     },
-    'archiveID': {  # Store arXiv ID
-        'source_field': 'arxiv_id',
-        'required': True
-    },
-    'archive': {  # Constant value for arXiv
+    'archive': {
         'source_field': None,
-        'required': True,
-        'default_value': 'arXiv'
+        'required': False,
+        'default_value': 'arXiv',
+        'use_default': True
     },
-    'archiveLocation': {  # Store primary category
-        'source_field': 'primary_category',
+    'archiveLocation': {
+        'source_field': 'arxiv_id',  # Changed from primary_category to arxiv_id
         'required': False
     },
-    'libraryCatalog': {  # Constant value
+    'libraryCatalog': {
         'source_field': None,
-        'required': True,
-        'default_value': 'arXiv.org'
+        'required': False,
+        'default_value': 'arXiv.org',
+        'use_default': True
     },
     'tags': {
         'source_field': 'categories',
         'required': False,
         'transformer': 'transform_tags'
     },
-    'extra': {  # Store additional metadata like comment, version
-        'source_field': ['comment', 'version'],
+    'extra': {
+        'source_field': ['comment', 'version', 'primary_category', 'arxiv_id'],  # Added arxiv_id and primary_category
         'required': False,
         'transformer': 'transform_extra'
     },
-    'accessDate': {  # Add access date
+    'accessDate': {
         'source_field': None,
-        'required': True,
-        'transformer': 'get_current_date'
+        'required': False,
+        'transformer': 'get_current_date',
+        'use_default': True
     },
-    'rights': {  # Add license information if available
+    'rights': {
         'source_field': 'license',
         'required': False
     }
