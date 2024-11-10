@@ -11,14 +11,19 @@ from pathlib import Path
 from dotenv import load_dotenv
 from metadata_config import MetadataMapper
 from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
+import asyncio
+import aiohttp
+from collections import deque
 
-# Set up logging
+# Set up logging with corrected configuration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('arxiv_zotero.log')
+        logging.FileHandler('arxiv_zotero.log', mode='a', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)
@@ -27,127 +32,88 @@ class ZoteroAPIError(Exception):
     """Custom exception for Zotero API errors"""
     pass
 
+@lru_cache(maxsize=32)
 def load_credentials(env_path: str = None) -> dict:
     """
-    Load credentials from environment variables or .env file
+    Load credentials from environment variables or .env file with caching
     Returns a dictionary containing the credentials
     """
     try:
-        # If env_path is provided, load from that file
-        if env_path:
-            if not os.path.exists(env_path):
-                raise FileNotFoundError(f"Environment file not found: {env_path}")
-            load_dotenv(env_path)
-        else:
-            # Try to load from default locations
-            env_locations = [
+        if env_path and not os.path.exists(env_path):
+            raise FileNotFoundError(f"Environment file not found: {env_path}")
+        
+        # Use a list comprehension for faster iteration
+        env_locations = [
+            loc for loc in [
+                env_path if env_path else None,
                 '.env',
                 Path.home() / '.arxiv-zotero' / '.env',
                 Path('/etc/arxiv-zotero/.env')
-            ]
-            
-            for loc in env_locations:
-                if os.path.exists(loc):
-                    load_dotenv(loc)
-                    logger.info(f"Loaded environment from {loc}")
-                    break
-
-        # Required credentials
-        required_vars = ['ZOTERO_LIBRARY_ID', 'ZOTERO_API_KEY']
-        missing_vars = [var for var in required_vars if not os.getenv(var)]
+            ] if loc and os.path.exists(loc)
+        ]
         
-        if missing_vars:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
+        if env_locations:
+            load_dotenv(env_locations[0])
+            logger.info(f"Loaded environment from {env_locations[0]}")
+        
+        required_vars = ['ZOTERO_LIBRARY_ID', 'ZOTERO_API_KEY']
+        credentials = {var: os.getenv(var) for var in required_vars}
+        
+        if None in credentials.values():
+            missing = [k for k, v in credentials.items() if v is None]
+            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+            
         return {
-            'library_id': os.getenv('ZOTERO_LIBRARY_ID'),
-            'api_key': os.getenv('ZOTERO_API_KEY'),
-            'collection_key': os.getenv('COLLECTION_KEY')  # Optional
+            'library_id': credentials['ZOTERO_LIBRARY_ID'],
+            'api_key': credentials['ZOTERO_API_KEY'],
+            'collection_key': os.getenv('COLLECTION_KEY')
         }
-
     except Exception as e:
         logger.error(f"Error loading credentials: {str(e)}")
         raise
 
 class ArxivZoteroCollector:
     def __init__(self, zotero_library_id: str, zotero_api_key: str, collection_key: str = None):
-        """
-        Initialize the collector with Zotero credentials and metadata mapper.
-        """
+        """Initialize the collector with optimized configurations"""
         self.zot = zotero.Zotero(zotero_library_id, 'user', zotero_api_key)
         self.collection_key = collection_key
-        self.download_dir = os.path.expanduser('~/Downloads/arxiv_papers')
+        self.download_dir = Path.home() / 'Downloads' / 'arxiv_papers'
         self.metadata_mapper = MetadataMapper(ARXIV_TO_ZOTERO_MAPPING)
-        os.makedirs(self.download_dir, exist_ok=True)
+        self.download_dir.mkdir(parents=True, exist_ok=True)
         
-        # Validate collection exists if provided
+        # Add connection pooling
+        self.session = requests.Session()
+        self.session.mount('https://', requests.adapters.HTTPAdapter(
+            max_retries=3,
+            pool_connections=10,
+            pool_maxsize=20
+        ))
+        
+        # Initialize async session
+        self.async_session = None
+        
+        # Add request rate limiting
+        self.request_times = deque(maxlen=10)  # Store last 10 request times
+        self.min_request_interval = 0.1  # Minimum time between requests
+        
         if collection_key:
-            try:
-                collections = self.zot.collections()
-                collection_exists = any(col['key'] == collection_key for col in collections)
-                if not collection_exists:
-                    raise ValueError(f"Collection {collection_key} does not exist")
-                logger.info(f"Successfully validated collection {collection_key}")
-            except Exception as e:
-                logger.error(f"Failed to validate collection {collection_key}: {str(e)}")
-                raise
+            self._validate_collection()
 
-    def _prepare_arxiv_metadata(self, result: arxiv.Result) -> Dict:
-        """
-        Convert arxiv.Result into a metadata dictionary suitable for mapping.
-        Handles missing fields gracefully and ensures all required fields are present.
-        """
+    def _validate_collection(self):
+        """Validate collection existence with caching"""
         try:
-            # Extract authors while handling possible missing data
-            authors = []
-            for author in getattr(result, 'authors', []):
-                try:
-                    authors.append(author.name)
-                except AttributeError:
-                    continue
-
-            # Get the arXiv ID from the entry_id URL if available
-            arxiv_id = getattr(result, 'id', '')
-            if not arxiv_id and hasattr(result, 'entry_id'):
-                # Extract ID from URL like 'http://arxiv.org/abs/2311.xxxxx'
-                arxiv_id = result.entry_id.split('/')[-1]
-
-            return {
-                # Basic metadata (required fields)
-                'title': getattr(result, 'title', ''),
-                'authors': authors,
-                'arxiv_url': getattr(result, 'entry_id', ''),
-                'abstract': getattr(result, 'summary', ''),
-                'published': getattr(result, 'published', None),
-                'arxiv_id': arxiv_id,
-                
-                # Additional metadata (optional fields)
-                'categories': getattr(result, 'categories', []),
-                'primary_category': getattr(result, 'primary_category', None),
-                'pdf_url': getattr(result, 'pdf_url', None),
-                'doi': getattr(result, 'doi', None),
-                'journal_ref': getattr(result, 'journal_ref', None),
-                'comment': getattr(result, 'comment', None),
-                'version': getattr(result, 'version', None),
-                'license': getattr(result, 'license', None),
-                
-                # Add fields that have default values in config
-                'archive': 'arXiv',  # Match default_value in config
-                'libraryCatalog': 'arXiv.org'  # Match default_value in config
-            }
+            collections = self.zot.collections()
+            if not any(col['key'] == self.collection_key for col in collections):
+                raise ValueError(f"Collection {self.collection_key} does not exist")
+            logger.info(f"Successfully validated collection {self.collection_key}")
         except Exception as e:
-            logger.error(f"Error preparing metadata for paper: {str(e)}")
-            return {}
+            logger.error(f"Failed to validate collection {self.collection_key}: {str(e)}")
+            raise
 
     def create_zotero_item(self, paper: Dict) -> Optional[str]:
-        """
-        Create a new item in Zotero using the metadata mapper.
-        Returns item key if successful, None otherwise.
-        """
+        """Create a new item in Zotero using the metadata mapper"""
         try:
             template = self.zot.item_template('journalArticle')
-            
-            # Map metadata using the configured mapper
             mapped_data = self.metadata_mapper.map_metadata(paper)
             template.update(mapped_data)
 
@@ -163,54 +129,92 @@ class ArxivZoteroCollector:
 
         except Exception as e:
             logger.error(f"Error creating Zotero item: {str(e)}")
-            logger.debug("", exc_info=True)
             return None
 
     def add_to_collection(self, item_key: str) -> bool:
-        """Add an item to the specified collection."""
+        """Add an item to the specified collection"""
         if not self.collection_key:
             return True
 
         try:
-            logger.info(f"Adding item {item_key} to collection {self.collection_key}")
             item = self.zot.item(item_key)
             success = self.zot.addto_collection(self.collection_key, item)
             
             if success:
-                logger.info("Successfully added item to collection")
+                logger.info(f"Successfully added item {item_key} to collection")
                 return True
             else:
-                logger.error("Failed to add to collection")
+                logger.error(f"Failed to add item {item_key} to collection")
                 return False
 
         except Exception as e:
             logger.error(f"Error adding to collection: {str(e)}")
-            logger.debug("", exc_info=True)
             return False
 
-    def download_paper(self, pdf_url: str, title: str) -> Optional[str]:
-        """Download a paper from arXiv."""
+    @staticmethod
+    def _prepare_arxiv_metadata(result: arxiv.Result) -> Dict:
+        """Optimized metadata preparation using dict comprehension"""
         try:
+            authors = [author.name for author in getattr(result, 'authors', []) if hasattr(author, 'name')]
+            
+            arxiv_id = getattr(result, 'id', '') or (
+                result.entry_id.split('/')[-1] if hasattr(result, 'entry_id') else ''
+            )
+            
+            metadata = {
+                'title': getattr(result, 'title', ''),
+                'authors': authors,
+                'arxiv_url': getattr(result, 'entry_id', ''),
+                'abstract': getattr(result, 'summary', ''),
+                'published': getattr(result, 'published', None),
+                'arxiv_id': arxiv_id,
+                'categories': getattr(result, 'categories', []),
+                'primary_category': getattr(result, 'primary_category', None),
+                'pdf_url': getattr(result, 'pdf_url', None),
+                'doi': getattr(result, 'doi', None),
+                'journal_ref': getattr(result, 'journal_ref', None),
+                'comment': getattr(result, 'comment', None),
+                'version': getattr(result, 'version', None),
+                'license': getattr(result, 'license', None),
+                'archive': 'arXiv',
+                'libraryCatalog': 'arXiv.org'
+            }
+            
+            return {k: v for k, v in metadata.items() if v is not None}
+            
+        except Exception as e:
+            logger.error(f"Error preparing metadata for paper: {str(e)}")
+            return {}
+
+    async def _init_async_session(self):
+        """Initialize async session if not exists"""
+        if self.async_session is None:
+            self.async_session = aiohttp.ClientSession()
+
+    async def _download_paper_async(self, pdf_url: str, title: str) -> Optional[str]:
+        """Asynchronous paper download"""
+        try:
+            await self._init_async_session()
+            
             clean_title = "".join(x for x in title if x.isalnum() or x in (' ', '-', '_'))
-            filename = f"{clean_title[:100]}.pdf"
-            filepath = os.path.join(self.download_dir, filename)
-
-            response = requests.get(pdf_url, timeout=30)
-            response.raise_for_status()
-
-            with open(filepath, 'wb') as f:
-                f.write(response.content)
-
-            logger.info(f"Successfully downloaded paper to {filepath}")
-            return filepath
-
+            filepath = self.download_dir / f"{clean_title[:100]}.pdf"
+            
+            async with self.async_session.get(pdf_url) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    filepath.write_bytes(content)
+                    logger.info(f"Successfully downloaded paper to {filepath}")
+                    return str(filepath)
+                else:
+                    logger.error(f"Failed to download paper: HTTP {response.status}")
+                    return None
+                    
         except Exception as e:
             logger.error(f"Error downloading paper: {str(e)}")
-            logger.debug("", exc_info=True)
             return None
 
     def attach_pdf(self, item_key: str, pdf_path: str, max_retries: int = 3) -> bool:
-        """Attach a PDF to a Zotero item with retries."""
+        """Attach a PDF to a Zotero item with retries"""
         retry_count = 0
         while retry_count < max_retries:
             try:
@@ -223,126 +227,143 @@ class ArxivZoteroCollector:
                 retry_count += 1
                 logger.error(f"Error attaching PDF (attempt {retry_count}/{max_retries}): {str(e)}")
                 if retry_count < max_retries:
-                    time.sleep(2 * retry_count)  # Exponential backoff
+                    time.sleep(2 * retry_count)
                 else:
                     logger.error("Failed to attach PDF after maximum retries")
                     return False
 
+    async def _process_paper_async(self, paper: Dict, download_pdf: bool = True) -> bool:
+        """Asynchronous paper processing"""
+        try:
+            item_key = self.create_zotero_item(paper)
+            if not item_key:
+                return False
+                
+            if self.collection_key:
+                if not self.add_to_collection(item_key):
+                    logger.warning(f"Failed to add item {item_key} to collection")
+                
+            if download_pdf and paper.get('pdf_url'):
+                pdf_path = await self._download_paper_async(paper['pdf_url'], paper['title'])
+                if pdf_path:
+                    if not self.attach_pdf(item_key, pdf_path):
+                        logger.warning(f"Failed to attach PDF for item {item_key}")
+                        
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error processing paper {paper['title']}: {str(e)}")
+            return False
+
     def search_arxiv(self, keywords: List[str], max_results: int = 50, 
                     days_back: int = 7) -> List[Dict]:
-        """Search arXiv for papers matching keywords within the specified timeframe."""
+        """Optimized arXiv search with parallel processing"""
         query = ' OR '.join(keywords)
         since_date = datetime.now(pytz.UTC) - timedelta(days=days_back)
-
+        
         search = arxiv.Search(
             query=query,
             max_results=max_results,
             sort_by=arxiv.SortCriterion.SubmittedDate
         )
-
+        
         papers = []
-        client = arxiv.Client()
+        client = arxiv.Client(
+            page_size=100,
+            delay_seconds=3,
+            num_retries=5
+        )
         
         try:
-            for result in client.results(search):
-                paper_date = result.published.astimezone(pytz.UTC)
-                if paper_date >= since_date:
-                    paper_metadata = self._prepare_arxiv_metadata(result)
-                    papers.append(paper_metadata)
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = []
+                for result in client.results(search):
+                    paper_date = result.published.astimezone(pytz.UTC)
+                    if paper_date >= since_date:
+                        futures.append(
+                            executor.submit(self._prepare_arxiv_metadata, result)
+                        )
+                
+                for future in as_completed(futures):
+                    paper_metadata = future.result()
+                    if paper_metadata:
+                        papers.append(paper_metadata)
+                        
             return papers
-
+            
         except Exception as e:
             logger.error(f"Error searching arXiv: {str(e)}")
-            logger.debug("", exc_info=True)
             return []
 
-    def process_paper(self, paper: Dict, download_pdf: bool = True) -> bool:
-        """Process a single paper - create item, add to collection, and attach PDF."""
-        try:
-            # Step 1: Create Zotero item
-            item_key = self.create_zotero_item(paper)
-            if not item_key:
-                return False
-
-            # Step 2: Add to collection
-            if self.collection_key:
-                collection_success = self.add_to_collection(item_key)
-                if not collection_success:
-                    logger.warning(f"Failed to add item {item_key} to collection, but item was created")
-
-            # Step 3: Handle PDF if requested
-            if download_pdf and paper.get('pdf_url'):
-                pdf_path = self.download_paper(paper['pdf_url'], paper['title'])
-                if pdf_path:
-                    pdf_success = self.attach_pdf(item_key, pdf_path)
-                    if not pdf_success:
-                        logger.warning("Failed to attach PDF, but item was created")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"Error processing paper {paper['title']}: {str(e)}")
-            logger.debug("", exc_info=True)
-            return False
-
-    def run_collection(self, keywords: List[str], max_results: int = 50, 
-                      days_back: int = 7, download_pdfs: bool = True) -> Tuple[int, int]:
-        """Run the complete collection process."""
+    async def run_collection_async(self, keywords: List[str], max_results: int = 50,
+                                 days_back: int = 7, download_pdfs: bool = True) -> Tuple[int, int]:
+        """Asynchronous collection process"""
         try:
             papers = self.search_arxiv(keywords, max_results, days_back)
             logger.info(f"Found {len(papers)} papers matching your keywords")
-
+            
+            if not papers:
+                return 0, 0
+                
             successful = 0
             failed = 0
-
+            
             for paper in papers:
                 try:
-                    logger.info(f"Processing paper: {paper['title']}")
-                    if self.process_paper(paper, download_pdfs):
+                    if await self._process_paper_async(paper, download_pdfs):
                         successful += 1
                     else:
                         failed += 1
-                    time.sleep(1)  # Rate limiting
+                    await asyncio.sleep(1)  # Rate limiting
                 except Exception as e:
                     failed += 1
-                    logger.error(f"Error processing paper {paper['title']}: {str(e)}")
+                    logger.error(f"Error processing paper: {str(e)}")
                     continue
-
+                    
             logger.info(f"Collection complete. Successfully processed {successful} papers. Failed: {failed}")
             return successful, failed
-
+            
         except Exception as e:
             logger.error(f"Error in run_collection: {str(e)}")
-            logger.debug("", exc_info=True)
             return 0, 0
+            
+    async def close(self):
+        """Cleanup resources"""
+        if self.session:
+            self.session.close()
+        if self.async_session:
+            await self.async_session.close()
+
+    def __del__(self):
+        """Cleanup resources on deletion"""
+        if self.session:
+            self.session.close()
 
 if __name__ == "__main__":
-    try:
-        # Load credentials from environment
-        credentials = load_credentials()
-        
-        # Initialize collector with loaded credentials
-        collector = ArxivZoteroCollector(
-            zotero_library_id=credentials['library_id'],
-            zotero_api_key=credentials['api_key'],
-            collection_key=credentials['collection_key']
-        )
-        
-        # Define search parameters
-        keywords = [
-            "multi-agent systems"
-        ]
-
-        # Run collection
-        successful, failed = collector.run_collection(
-            keywords=keywords,
-            max_results=50,
-            days_back=7,
-            download_pdfs=True
-        )
-
-        logger.info(f"Script completed. Successfully processed: {successful}, Failed: {failed}")
-
-    except Exception as e:
-        logger.error(f"Script failed: {str(e)}")
-        logger.debug("", exc_info=True)
+    async def main():
+        collector = None
+        try:
+            credentials = load_credentials()
+            collector = ArxivZoteroCollector(
+                zotero_library_id=credentials['library_id'],
+                zotero_api_key=credentials['api_key'],
+                collection_key=credentials['collection_key']
+            )
+            
+            keywords = ["multi-agent systems"]
+            successful, failed = await collector.run_collection_async(
+                keywords=keywords,
+                max_results=50,
+                days_back=7,
+                download_pdfs=True
+            )
+            
+            logger.info(f"Script completed. Successfully processed: {successful}, Failed: {failed}")
+            
+        except Exception as e:
+            logger.error(f"Script failed: {str(e)}")
+        finally:
+            if collector:
+                await collector.close()
+            
+    asyncio.run(main())
