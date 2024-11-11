@@ -18,6 +18,7 @@ from search_params import ArxivSearchParams
 from pdf_manager import PDFManager
 from arxiv_client import ArxivClient
 from zotero_client import ZoteroClient, ZoteroAPIError
+from paper_processor import PaperProcessor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,94 +36,14 @@ class ArxivZoteroCollector:
         self.zotero_client = ZoteroClient(zotero_library_id, zotero_api_key, collection_key)
         self.metadata_mapper = MetadataMapper(ARXIV_TO_ZOTERO_MAPPING)
         self.pdf_manager = PDFManager()
+        self.paper_processor = PaperProcessor(
+        self.zotero_client,
+        self.metadata_mapper,
+        self.pdf_manager
+    )
         self.arxiv_client = ArxivClient()        
         self.async_session = None
-
-    def create_zotero_item(self, paper: Dict) -> Optional[str]:
-        try:
-            mapped_data = self.metadata_mapper.map_metadata(paper)
-            return self.zotero_client.create_item('journalArticle', mapped_data)
-        except ZoteroAPIError as e:
-            logger.error(f"Error creating Zotero item: {str(e)}")
-            return None
-
-    def add_to_collection(self, item_key: str) -> bool:
-        try:
-            return self.zotero_client.add_to_collection(item_key)
-        except ZoteroAPIError as e:
-            logger.error(f"Error adding to collection: {str(e)}")
-            return False
-
-    async def _process_paper_async(self, paper: Dict, download_pdfs: bool = True) -> bool:
-        """Process a single paper asynchronously"""
-        try:
-            # Create main Zotero item
-            item_key = self.create_zotero_item(paper)
-            if not item_key:
-                logger.error("Failed to create main Zotero item")
-                return False
-
-            # Add to collection if specified
-            if self.collection_key and not self.add_to_collection(item_key):
-                logger.error(f"Failed to add item {item_key} to collection")
-                # Consider if you want to delete the created item here
-                return False
-
-            # Handle PDF attachment if requested
-            if download_pdfs:
-                try:
-                    # Download PDF
-                    pdf_path, filename = await self.pdf_manager.download_pdf(
-                        url=paper['pdf_url'],
-                        title=paper['title']
-                    )
-                    
-                    if not pdf_path or not filename:
-                        logger.error("Failed to download PDF")
-                        return False
-                    
-                    # Create and upload attachment
-                    attachment_template = self.zotero_client.zot.item_template('attachment', 'imported_file')
-                    attachment_template.update(
-                        self.pdf_manager.prepare_attachment_template(
-                            filename=filename,
-                            parent_item=item_key,
-                            filepath=pdf_path
-                        )
-                    )
-                    
-                    # Upload the attachment
-                    result = self.zotero_client.zot.upload_attachments([attachment_template])
-                    
-                    if not result:
-                        logger.error("No result returned from upload_attachments")
-                        return False
-                    
-                    # Check attachment creation status
-                    has_attachment = (
-                        len(result.get('success', [])) > 0 or 
-                        len(result.get('unchanged', [])) > 0
-                    )
-                    
-                    if not has_attachment:
-                        if len(result.get('failure', [])) > 0:
-                            logger.error(f"Failed to upload attachment. Response: {result}")
-                        else:
-                            logger.warning(f"Unexpected attachment result: {result}")
-                        return False
-                    
-                    logger.info(f"Successfully processed PDF attachment for item {item_key}")
-                    
-                except Exception as e:
-                    logger.error(f"Error in PDF processing: {str(e)}")
-                    return False
-            
-            return True
-
-        except Exception as e:
-            logger.error(f"Error processing paper: {str(e)}")
-            return False
-
+        
     def search_arxiv(self, search_params: ArxivSearchParams) -> List[Dict]:
         """Search arXiv using provided search parameters"""
         return self.arxiv_client.search_arxiv(search_params)
@@ -142,7 +63,7 @@ class ArxivZoteroCollector:
             async def process_paper(paper):
                 nonlocal successful, failed
                 try:
-                    if await self._process_paper_async(paper, download_pdfs):
+                    if await self.paper_processor.process_paper(paper, download_pdfs):
                         successful += 1
                     else:
                         failed += 1
