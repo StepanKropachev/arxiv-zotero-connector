@@ -1,23 +1,14 @@
-import aiohttp
 import asyncio
-from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from functools import lru_cache
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Tuple
 import logging
-import os
-import re
-import unicodedata
-from credentials import load_credentials, CredentialsError
+from credentials import load_credentials
 
 from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
 from metadata_config import MetadataMapper
 from search_params import ArxivSearchParams
 from pdf_manager import PDFManager
 from arxiv_client import ArxivClient
-from zotero_client import ZoteroClient, ZoteroAPIError
+from zotero_client import ZoteroClient
 from paper_processor import PaperProcessor
 
 logging.basicConfig(
