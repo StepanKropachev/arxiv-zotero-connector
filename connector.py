@@ -1,23 +1,22 @@
 import arxiv
-import requests
-from pyzotero import zotero
-import os
-from datetime import datetime, timedelta
-import time
-from typing import List, Dict, Optional, Tuple
-import pytz
-import logging
-from pathlib import Path
-from dotenv import load_dotenv
-from metadata_config import MetadataMapper
-from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
-import asyncio
 import aiohttp
+import asyncio
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from functools import lru_cache
+from pathlib import Path
+from pyzotero import zotero
+from typing import List, Dict, Optional, Tuple
+import logging
+import os
+import pytz
+import requests
 
-# Set up logging with corrected configuration
+from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
+from metadata_config import MetadataMapper
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -30,19 +29,14 @@ logger = logging.getLogger(__name__)
 
 class ZoteroAPIError(Exception):
     """Custom exception for Zotero API errors"""
-    pass
 
 @lru_cache(maxsize=32)
 def load_credentials(env_path: str = None) -> dict:
-    """
-    Load credentials from environment variables or .env file with caching
-    Returns a dictionary containing the credentials
-    """
+    """Load credentials from environment variables or .env file with caching"""
     try:
         if env_path and not os.path.exists(env_path):
             raise FileNotFoundError(f"Environment file not found: {env_path}")
         
-        # Use a list comprehension for faster iteration
         env_locations = [
             loc for loc in [
                 env_path if env_path else None,
@@ -81,7 +75,6 @@ class ArxivZoteroCollector:
         self.metadata_mapper = MetadataMapper(ARXIV_TO_ZOTERO_MAPPING)
         self.download_dir.mkdir(parents=True, exist_ok=True)
         
-        # Add connection pooling
         self.session = requests.Session()
         self.session.mount('https://', requests.adapters.HTTPAdapter(
             max_retries=3,
@@ -89,12 +82,9 @@ class ArxivZoteroCollector:
             pool_maxsize=20
         ))
         
-        # Initialize async session
         self.async_session = None
-        
-        # Add request rate limiting
-        self.request_times = deque(maxlen=10)  # Store last 10 request times
-        self.min_request_interval = 0.1  # Minimum time between requests
+        self.request_times = deque(maxlen=10)
+        self.min_request_interval = 0.1
         
         if collection_key:
             self._validate_collection()
@@ -227,7 +217,7 @@ class ArxivZoteroCollector:
                 retry_count += 1
                 logger.error(f"Error attaching PDF (attempt {retry_count}/{max_retries}): {str(e)}")
                 if retry_count < max_retries:
-                    time.sleep(2 * retry_count)
+                    asyncio.sleep(2 * retry_count)
                 else:
                     logger.error("Failed to attach PDF after maximum retries")
                     return False
@@ -308,17 +298,19 @@ class ArxivZoteroCollector:
             successful = 0
             failed = 0
             
-            for paper in papers:
+            async def process_paper(paper):
+                nonlocal successful, failed
                 try:
                     if await self._process_paper_async(paper, download_pdfs):
                         successful += 1
                     else:
                         failed += 1
-                    await asyncio.sleep(1)  # Rate limiting
                 except Exception as e:
                     failed += 1
                     logger.error(f"Error processing paper: {str(e)}")
-                    continue
+                
+            tasks = [process_paper(paper) for paper in papers]
+            await asyncio.gather(*tasks)
                     
             logger.info(f"Collection complete. Successfully processed {successful} papers. Failed: {failed}")
             return successful, failed
@@ -339,31 +331,31 @@ class ArxivZoteroCollector:
         if self.session:
             self.session.close()
 
+async def main():
+    collector = None
+    try:
+        credentials = load_credentials()
+        collector = ArxivZoteroCollector(
+            zotero_library_id=credentials['library_id'],
+            zotero_api_key=credentials['api_key'],
+            collection_key=credentials['collection_key']
+        )
+        
+        keywords = ["multi-agent systems"]
+        successful, failed = await collector.run_collection_async(
+            keywords=keywords,
+            max_results=10,
+            days_back=7,
+            download_pdfs=True
+        )
+        
+        logger.info(f"Script completed. Successfully processed: {successful}, Failed: {failed}")
+        
+    except Exception as e:
+        logger.error(f"Script failed: {str(e)}")
+    finally:
+        if collector:
+            await collector.close()
+        
 if __name__ == "__main__":
-    async def main():
-        collector = None
-        try:
-            credentials = load_credentials()
-            collector = ArxivZoteroCollector(
-                zotero_library_id=credentials['library_id'],
-                zotero_api_key=credentials['api_key'],
-                collection_key=credentials['collection_key']
-            )
-            
-            keywords = ["multi-agent systems"]
-            successful, failed = await collector.run_collection_async(
-                keywords=keywords,
-                max_results=1,
-                days_back=7,
-                download_pdfs=True
-            )
-            
-            logger.info(f"Script completed. Successfully processed: {successful}, Failed: {failed}")
-            
-        except Exception as e:
-            logger.error(f"Script failed: {str(e)}")
-        finally:
-            if collector:
-                await collector.close()
-            
     asyncio.run(main())
