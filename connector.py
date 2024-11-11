@@ -204,7 +204,7 @@ class ArxivZoteroCollector:
     async def _process_paper_async(self, paper: Dict, download_pdfs: bool = True) -> bool:
         """Process a single paper asynchronously"""
         try:
-            # Create Zotero item
+            # Create main Zotero item
             item_key = self.create_zotero_item(paper)
             if not item_key:
                 return False
@@ -213,9 +213,9 @@ class ArxivZoteroCollector:
             if self.collection_key and not self.add_to_collection(item_key):
                 return False
 
-            # Download PDF if requested
+            # Handle PDF attachment if requested
             if download_pdfs:
-                # Generate filename from title only
+                # Generate filename from title
                 filename = f"{self._sanitize_filename(paper['title'])}.pdf"
                 pdf_path = self.download_dir / filename
                 
@@ -226,7 +226,45 @@ class ArxivZoteroCollector:
                     pdf_path = self.download_dir / filename
                     counter += 1
                 
-                if not await self._download_pdf_async(paper['pdf_url'], pdf_path):
+                # Download the PDF
+                if await self._download_pdf_async(paper['pdf_url'], pdf_path):
+                    try:
+                        # Create attachment item template
+                        attachment = self.zot.item_template('attachment', 'imported_file')
+                        attachment.update({
+                            'title': filename,
+                            'parentItem': item_key,
+                            'contentType': 'application/pdf',
+                            'filename': str(pdf_path)  # Use full path
+                        })
+                        
+                        # Upload the attachment
+                        result = self.zot.upload_attachments([attachment])
+                        
+                        # Check if the attachment was created (it will be in either success, failure, or unchanged)
+                        if result:
+                            has_attachment = (
+                                len(result.get('success', [])) > 0 or 
+                                len(result.get('unchanged', [])) > 0
+                            )
+                            if has_attachment:
+                                logger.info(f"Successfully processed PDF attachment for item {item_key}")
+                                return True
+                            elif len(result.get('failure', [])) > 0:
+                                logger.error(f"Failed to upload attachment. Response: {result}")
+                                return False
+                            else:
+                                logger.warning(f"Unexpected attachment result: {result}")
+                                return False
+                        else:
+                            logger.error("No result returned from upload_attachments")
+                            return False
+                            
+                    except Exception as e:
+                        logger.error(f"Error creating/uploading attachment: {str(e)}")
+                        return False
+                else:
+                    logger.error("Failed to download PDF")
                     return False
 
             return True
