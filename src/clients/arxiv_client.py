@@ -5,7 +5,8 @@ import pytz
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
 from typing import List, Dict, Optional
-from search_params import ArxivSearchParams
+
+from ..core.search_params import ArxivSearchParams
 
 logger = logging.getLogger(__name__)
 

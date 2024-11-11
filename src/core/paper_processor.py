@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from zotero_client import ZoteroAPIError
+from ..clients.zotero_client import ZoteroAPIError
 
 logger = logging.getLogger(__name__)
 

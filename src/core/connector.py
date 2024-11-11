@@ -1,15 +1,15 @@
 import asyncio
 from typing import List, Dict, Tuple
 import logging
-from credentials import load_credentials
 
-from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
-from metadata_config import MetadataMapper
-from search_params import ArxivSearchParams
-from pdf_manager import PDFManager
-from arxiv_client import ArxivClient
-from zotero_client import ZoteroClient
-from paper_processor import PaperProcessor
+from ..utils.credentials import load_credentials
+from ..config.arxiv_config import ARXIV_TO_ZOTERO_MAPPING
+from ..config.metadata_config import MetadataMapper
+from .search_params import ArxivSearchParams
+from ..utils.pdf_manager import PDFManager
+from ..clients.arxiv_client import ArxivClient
+from ..clients.zotero_client import ZoteroClient
+from .paper_processor import PaperProcessor
 
 logging.basicConfig(
     level=logging.INFO,
