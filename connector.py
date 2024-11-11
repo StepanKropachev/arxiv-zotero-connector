@@ -19,6 +19,7 @@ from credentials import load_credentials, CredentialsError
 from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
 from metadata_config import MetadataMapper
 from search_params import ArxivSearchParams
+from pdf_manager import PDFManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,9 +42,8 @@ class ArxivZoteroCollector:
         """Initialize the collector with API clients and configurations"""
         self.zot = zotero.Zotero(zotero_library_id, 'user', zotero_api_key)
         self.collection_key = collection_key
-        self.download_dir = Path.home() / 'Downloads' / 'arxiv_papers'
         self.metadata_mapper = MetadataMapper(ARXIV_TO_ZOTERO_MAPPING)
-        self.download_dir.mkdir(parents=True, exist_ok=True)
+        self.pdf_manager = PDFManager()
         
         self.session = requests.Session()
         self.session.mount('https://', requests.adapters.HTTPAdapter(
@@ -181,16 +181,51 @@ class ArxivZoteroCollector:
 
             # Handle PDF attachment if requested
             if download_pdfs:
-                # Generate filename from title
-                filename = f"{self._sanitize_filename(paper['title'])}.pdf"
-                pdf_path = self.download_dir / filename
+                pdf_path, filename = await self.pdf_manager.download_pdf(
+                    url=paper['pdf_url'],
+                    title=paper['title']
+                )
                 
-                # If file already exists, add a number suffix
-                counter = 1
-                while pdf_path.exists():
-                    filename = f"{self._sanitize_filename(paper['title'])} ({counter}).pdf"
-                    pdf_path = self.download_dir / filename
-                    counter += 1
+            if pdf_path and filename:
+                try:
+                    # Create attachment item template using PDFManager
+                    attachment = self.zot.item_template('attachment', 'imported_file')
+                    attachment.update(
+                        self.pdf_manager.prepare_attachment_template(
+                            filename=filename,
+                            parent_item=item_key,
+                            filepath=pdf_path
+                        )
+                    )
+                    
+                    # Upload the attachment
+                    result = self.zot.upload_attachments([attachment])
+                    
+                    # Check if the attachment was created
+                    if result:
+                        has_attachment = (
+                            len(result.get('success', [])) > 0 or 
+                            len(result.get('unchanged', [])) > 0
+                        )
+                        if has_attachment:
+                            logger.info(f"Successfully processed PDF attachment for item {item_key}")
+                            return True
+                        elif len(result.get('failure', [])) > 0:
+                            logger.error(f"Failed to upload attachment. Response: {result}")
+                            return False
+                        else:
+                            logger.warning(f"Unexpected attachment result: {result}")
+                            return False
+                    else:
+                        logger.error("No result returned from upload_attachments")
+                        return False
+                        
+                except Exception as e:
+                    logger.error(f"Error creating/uploading attachment: {str(e)}")
+                    return False
+            else:
+                logger.error("Failed to download PDF")
+                return False
                 
                 # Download the PDF
                 if await self._download_pdf_async(paper['pdf_url'], pdf_path):
@@ -238,58 +273,6 @@ class ArxivZoteroCollector:
         except Exception as e:
             logger.error(f"Error processing paper: {str(e)}")
             return False
-        
-    async def _download_pdf_async(self, url: str, path: Path) -> bool:
-        """Download PDF asynchronously"""
-        if not self.async_session:
-            self.async_session = aiohttp.ClientSession()
-
-        try:
-            async with self.async_session.get(url) as response:
-                if response.status == 200:
-                    content = await response.read()
-                    path.write_bytes(content)
-                    logger.info(f"Successfully downloaded PDF to {path}")
-                    return True
-                else:
-                    logger.error(f"Failed to download PDF. Status: {response.status}")
-                    return False
-
-        except Exception as e:
-            logger.error(f"Error downloading PDF: {str(e)}")
-            return False
-
-    def _sanitize_filename(self, title: str, max_length: int = 100) -> str:
-        """
-        Convert paper title to a safe filename while preserving original casing.
-        
-        Args:
-            title: Paper title to convert
-            max_length: Maximum length of the resulting filename
-                
-        Returns:
-            str: Sanitized filename
-        """
-        # Normalize unicode characters
-        filename = unicodedata.normalize('NFKD', title).encode('ASCII', 'ignore').decode()
-        
-        # Replace non-alphanumeric characters with spaces, preserving case
-        filename = re.sub(r'[^\w\s-]', ' ', filename)
-        
-        # Replace multiple spaces with single space and strip
-        filename = ' '.join(filename.split())
-        
-        # Truncate if too long, but try to break at word boundary
-        if len(filename) > max_length:
-            filename = filename[:max_length]
-            last_space = filename.rfind(' ')
-            if last_space > max_length * 0.8:  # Only truncate at space if it's not too short
-                filename = filename[:last_space]
-        
-        # Replace problematic characters (if any remain) with safe alternatives
-        filename = filename.replace('/', '-').replace('\\', '-')
-        
-        return filename
 
     def search_arxiv(self, search_params: ArxivSearchParams) -> List[Dict]:
         """Search arXiv using provided search parameters"""
@@ -377,6 +360,7 @@ class ArxivZoteroCollector:
             self.session.close()
         if self.async_session:
             await self.async_session.close()
+        await self.pdf_manager.close()
 
     def __del__(self):
         """Cleanup resources on deletion"""
