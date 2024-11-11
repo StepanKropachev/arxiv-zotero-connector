@@ -3,7 +3,7 @@ import aiohttp
 import asyncio
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime
 from dotenv import load_dotenv
 from functools import lru_cache
 from pathlib import Path
@@ -13,9 +13,12 @@ import logging
 import os
 import pytz
 import requests
+import re
+import unicodedata
 
 from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
 from metadata_config import MetadataMapper
+from search_params import ArxivSearchParams
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class ZoteroAPIError(Exception):
     """Custom exception for Zotero API errors"""
+    pass
 
 @lru_cache(maxsize=32)
 def load_credentials(env_path: str = None) -> dict:
@@ -68,7 +72,7 @@ def load_credentials(env_path: str = None) -> dict:
 
 class ArxivZoteroCollector:
     def __init__(self, zotero_library_id: str, zotero_api_key: str, collection_key: str = None):
-        """Initialize the collector with optimized configurations"""
+        """Initialize the collector with API clients and configurations"""
         self.zot = zotero.Zotero(zotero_library_id, 'user', zotero_api_key)
         self.collection_key = collection_key
         self.download_dir = Path.home() / 'Downloads' / 'arxiv_papers'
@@ -90,7 +94,7 @@ class ArxivZoteroCollector:
             self._validate_collection()
 
     def _validate_collection(self):
-        """Validate collection existence with caching"""
+        """Validate collection existence"""
         try:
             collections = self.zot.collections()
             if not any(col['key'] == self.collection_key for col in collections):
@@ -141,156 +145,194 @@ class ArxivZoteroCollector:
             logger.error(f"Error adding to collection: {str(e)}")
             return False
 
-    @staticmethod
-    def _prepare_arxiv_metadata(result: arxiv.Result) -> Dict:
-        """Optimized metadata preparation using dict comprehension"""
+    def filter_by_date(self, result: arxiv.Result, start_date: Optional[datetime], end_date: Optional[datetime]) -> bool:
+        """Filter arxiv result by date range"""
+        if not (start_date or end_date):
+            return True
+            
+        pub_date = result.published.astimezone(pytz.UTC)
+        
+        if start_date and pub_date < start_date:
+            return False
+        if end_date and pub_date > end_date:
+            return False
+            
+        return True
+
+    def filter_by_content_type(self, result: arxiv.Result, content_type: Optional[str]) -> bool:
+        """Filter arxiv result by content type"""
+        if not content_type:
+            return True
+            
+        comment = getattr(result, 'comment', '') or ''
+        journal_ref = getattr(result, 'journal_ref', '') or ''
+        
+        comment = comment.lower()
+        journal_ref = journal_ref.lower()
+        
+        if content_type == 'journal':
+            return bool(journal_ref and not ('preprint' in journal_ref or 'submitted' in journal_ref))
+        elif content_type == 'conference':
+            return bool('conference' in comment or 'proceedings' in comment or 
+                    'conference' in journal_ref or 'proceedings' in journal_ref)
+        elif content_type == 'preprint':
+            return not bool(journal_ref)
+            
+        return True
+
+    async def _prepare_arxiv_metadata(self, result: arxiv.Result) -> Optional[Dict]:
+        """Prepare metadata from arxiv result"""
         try:
-            authors = [author.name for author in getattr(result, 'authors', []) if hasattr(author, 'name')]
-            
-            arxiv_id = getattr(result, 'id', '') or (
-                result.entry_id.split('/')[-1] if hasattr(result, 'entry_id') else ''
-            )
-            
-            metadata = {
-                'title': getattr(result, 'title', ''),
-                'authors': authors,
-                'arxiv_url': getattr(result, 'entry_id', ''),
-                'abstract': getattr(result, 'summary', ''),
-                'published': getattr(result, 'published', None),
-                'arxiv_id': arxiv_id,
-                'categories': getattr(result, 'categories', []),
-                'primary_category': getattr(result, 'primary_category', None),
-                'pdf_url': getattr(result, 'pdf_url', None),
-                'doi': getattr(result, 'doi', None),
+            return {
+                'title': result.title,
+                'abstract': result.summary,
+                'authors': [author.name for author in result.authors],
+                'published': result.published.strftime('%Y-%m-%d') if isinstance(result.published, datetime) else result.published,
+                'arxiv_id': result.entry_id.split('/')[-1],
+                'arxiv_url': result.entry_id,
+                'pdf_url': result.pdf_url,
+                'primary_category': result.primary_category,
+                'categories': result.categories,
                 'journal_ref': getattr(result, 'journal_ref', None),
-                'comment': getattr(result, 'comment', None),
-                'version': getattr(result, 'version', None),
-                'license': getattr(result, 'license', None),
-                'archive': 'arXiv',
-                'libraryCatalog': 'arXiv.org'
+                'doi': getattr(result, 'doi', None),
+                'comment': getattr(result, 'comment', None)
             }
-            
-            return {k: v for k, v in metadata.items() if v is not None}
-            
         except Exception as e:
-            logger.error(f"Error preparing metadata for paper: {str(e)}")
-            return {}
-
-    async def _init_async_session(self):
-        """Initialize async session if not exists"""
-        if self.async_session is None:
-            self.async_session = aiohttp.ClientSession()
-
-    async def _download_paper_async(self, pdf_url: str, title: str) -> Optional[str]:
-        """Asynchronous paper download"""
-        try:
-            await self._init_async_session()
-            
-            clean_title = "".join(x for x in title if x.isalnum() or x in (' ', '-', '_'))
-            filepath = self.download_dir / f"{clean_title[:100]}.pdf"
-            
-            async with self.async_session.get(pdf_url) as response:
-                if response.status == 200:
-                    content = await response.read()
-                    filepath.write_bytes(content)
-                    logger.info(f"Successfully downloaded paper to {filepath}")
-                    return str(filepath)
-                else:
-                    logger.error(f"Failed to download paper: HTTP {response.status}")
-                    return None
-                    
-        except Exception as e:
-            logger.error(f"Error downloading paper: {str(e)}")
+            logger.error(f"Error preparing arxiv metadata: {str(e)}")
             return None
 
-    def attach_pdf(self, item_key: str, pdf_path: str, max_retries: int = 3) -> bool:
-        """Attach a PDF to a Zotero item with retries"""
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                logger.info(f"Attempting to attach PDF (attempt {retry_count + 1}/{max_retries})")
-                self.zot.attachment_simple([pdf_path], item_key)
-                logger.info("PDF attached successfully")
-                return True
-
-            except Exception as e:
-                retry_count += 1
-                logger.error(f"Error attaching PDF (attempt {retry_count}/{max_retries}): {str(e)}")
-                if retry_count < max_retries:
-                    asyncio.sleep(2 * retry_count)
-                else:
-                    logger.error("Failed to attach PDF after maximum retries")
-                    return False
-
-    async def _process_paper_async(self, paper: Dict, download_pdf: bool = True) -> bool:
-        """Asynchronous paper processing"""
+    async def _process_paper_async(self, paper: Dict, download_pdfs: bool = True) -> bool:
+        """Process a single paper asynchronously"""
         try:
+            # Create Zotero item
             item_key = self.create_zotero_item(paper)
             if not item_key:
                 return False
+
+            # Add to collection if specified
+            if self.collection_key and not self.add_to_collection(item_key):
+                return False
+
+            # Download PDF if requested
+            if download_pdfs:
+                # Generate filename from title
+                safe_title = self._sanitize_filename(paper['title'])
+                filename = f"{safe_title}_{paper['arxiv_id']}.pdf"
+                pdf_path = self.download_dir / filename
                 
-            if self.collection_key:
-                if not self.add_to_collection(item_key):
-                    logger.warning(f"Failed to add item {item_key} to collection")
-                
-            if download_pdf and paper.get('pdf_url'):
-                pdf_path = await self._download_paper_async(paper['pdf_url'], paper['title'])
-                if pdf_path:
-                    if not self.attach_pdf(item_key, pdf_path):
-                        logger.warning(f"Failed to attach PDF for item {item_key}")
-                        
+                if not await self._download_pdf_async(paper['pdf_url'], pdf_path):
+                    return False
+
             return True
-            
+
         except Exception as e:
-            logger.error(f"Error processing paper {paper['title']}: {str(e)}")
+            logger.error(f"Error processing paper: {str(e)}")
+            return False
+        
+    async def _download_pdf_async(self, url: str, path: Path) -> bool:
+        """Download PDF asynchronously"""
+        if not self.async_session:
+            self.async_session = aiohttp.ClientSession()
+
+        try:
+            async with self.async_session.get(url) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    path.write_bytes(content)
+                    logger.info(f"Successfully downloaded PDF to {path}")
+                    return True
+                else:
+                    logger.error(f"Failed to download PDF. Status: {response.status}")
+                    return False
+
+        except Exception as e:
+            logger.error(f"Error downloading PDF: {str(e)}")
             return False
 
-    def search_arxiv(self, keywords: List[str], max_results: int = 50, 
-                    days_back: int = 7) -> List[Dict]:
-        """Optimized arXiv search with parallel processing"""
-        query = ' OR '.join(keywords)
-        since_date = datetime.now(pytz.UTC) - timedelta(days=days_back)
+    def _sanitize_filename(self, title: str, max_length: int = 100) -> str:
+        """
+        Convert paper title to a safe filename.
         
-        search = arxiv.Search(
-            query=query,
-            max_results=max_results,
-            sort_by=arxiv.SortCriterion.SubmittedDate
-        )
+        Args:
+            title: Paper title to convert
+            max_length: Maximum length of the resulting filename
+            
+        Returns:
+            str: Sanitized filename
+        """
+        # Normalize unicode characters
+        filename = unicodedata.normalize('NFKD', title).encode('ASCII', 'ignore').decode()
         
-        papers = []
-        client = arxiv.Client(
-            page_size=100,
-            delay_seconds=3,
-            num_retries=5
-        )
+        # Replace non-alphanumeric characters with spaces
+        filename = re.sub(r'[^\w\s-]', ' ', filename)
         
+        # Replace multiple spaces with single space and strip
+        filename = ' '.join(filename.split())
+        
+        # Replace spaces with underscores
+        filename = filename.replace(' ', '_')
+        
+        # Truncate if too long, but try to break at word boundary
+        if len(filename) > max_length:
+            filename = filename[:max_length]
+            last_underscore = filename.rfind('_')
+            if last_underscore > max_length * 0.8:  # Only truncate at underscore if it's not too short
+                filename = filename[:last_underscore]
+        
+        return filename.lower()
+
+    def search_arxiv(self, search_params: ArxivSearchParams) -> List[Dict]:
+        """Search arXiv using provided search parameters"""
         try:
+            query = search_params.build_query()
+            logger.info(f"Executing arXiv search with query: {query}")
+            
+            search = arxiv.Search(
+                query=query,
+                max_results=search_params.max_results,
+                sort_by=arxiv.SortCriterion.SubmittedDate
+            )
+            
+            papers = []
+            client = arxiv.Client(
+                page_size=100,
+                delay_seconds=3,
+                num_retries=5
+            )
+            
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = []
+                
                 for result in client.results(search):
-                    paper_date = result.published.astimezone(pytz.UTC)
-                    if paper_date >= since_date:
-                        futures.append(
-                            executor.submit(self._prepare_arxiv_metadata, result)
-                        )
+                    if not self.filter_by_date(result, search_params.start_date, search_params.end_date):
+                        continue
+                        
+                    if not self.filter_by_content_type(result, search_params.content_type):
+                        continue
+                    
+                    future = executor.submit(
+                        asyncio.run,
+                        self._prepare_arxiv_metadata(result)
+                    )
+                    futures.append(future)
                 
                 for future in as_completed(futures):
                     paper_metadata = future.result()
                     if paper_metadata:
                         papers.append(paper_metadata)
-                        
+            
+            logger.info(f"Found {len(papers)} papers matching the search criteria")
             return papers
             
         except Exception as e:
             logger.error(f"Error searching arXiv: {str(e)}")
             return []
 
-    async def run_collection_async(self, keywords: List[str], max_results: int = 50,
-                                 days_back: int = 7, download_pdfs: bool = True) -> Tuple[int, int]:
-        """Asynchronous collection process"""
+    async def run_collection_async(self, search_params: ArxivSearchParams, download_pdfs: bool = True) -> Tuple[int, int]:
+        """Run collection process asynchronously using search parameters"""
         try:
-            papers = self.search_arxiv(keywords, max_results, days_back)
-            logger.info(f"Found {len(papers)} papers matching your keywords")
+            papers = self.search_arxiv(search_params)
+            logger.info(f"Found {len(papers)} papers matching the criteria")
             
             if not papers:
                 return 0, 0
@@ -318,7 +360,7 @@ class ArxivZoteroCollector:
         except Exception as e:
             logger.error(f"Error in run_collection: {str(e)}")
             return 0, 0
-            
+
     async def close(self):
         """Cleanup resources"""
         if self.session:
@@ -341,11 +383,15 @@ async def main():
             collection_key=credentials['collection_key']
         )
         
-        keywords = ["multi-agent systems"]
-        successful, failed = await collector.run_collection_async(
-            keywords=keywords,
+        # Example usage with ArxivSearchParams
+        search_params = ArxivSearchParams(
+            keywords=["multi-agent systems"],
             max_results=10,
-            days_back=7,
+            categories=["cs.AI"]
+        )
+        
+        successful, failed = await collector.run_collection_async(
+            search_params=search_params,
             download_pdfs=True
         )
         
@@ -356,6 +402,6 @@ async def main():
     finally:
         if collector:
             await collector.close()
-        
+
 if __name__ == "__main__":
     asyncio.run(main())

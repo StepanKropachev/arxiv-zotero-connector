@@ -14,11 +14,6 @@ ARXIV_TO_ZOTERO_MAPPING = {
         'source_field': 'arxiv_url',
         'required': True
     },
-    'date': {
-        'source_field': 'published',
-        'required': True,
-        'transformer': 'transform_date'
-    },
     
     # Additional metadata (all optional)
     'abstractNote': {
