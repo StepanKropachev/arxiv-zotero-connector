@@ -215,10 +215,16 @@ class ArxivZoteroCollector:
 
             # Download PDF if requested
             if download_pdfs:
-                # Generate filename from title
-                safe_title = self._sanitize_filename(paper['title'])
-                filename = f"{safe_title}_{paper['arxiv_id']}.pdf"
+                # Generate filename from title only
+                filename = f"{self._sanitize_filename(paper['title'])}.pdf"
                 pdf_path = self.download_dir / filename
+                
+                # If file already exists, add a number suffix
+                counter = 1
+                while pdf_path.exists():
+                    filename = f"{self._sanitize_filename(paper['title'])} ({counter}).pdf"
+                    pdf_path = self.download_dir / filename
+                    counter += 1
                 
                 if not await self._download_pdf_async(paper['pdf_url'], pdf_path):
                     return False
@@ -251,35 +257,35 @@ class ArxivZoteroCollector:
 
     def _sanitize_filename(self, title: str, max_length: int = 100) -> str:
         """
-        Convert paper title to a safe filename.
+        Convert paper title to a safe filename while preserving original casing.
         
         Args:
             title: Paper title to convert
             max_length: Maximum length of the resulting filename
-            
+                
         Returns:
             str: Sanitized filename
         """
         # Normalize unicode characters
         filename = unicodedata.normalize('NFKD', title).encode('ASCII', 'ignore').decode()
         
-        # Replace non-alphanumeric characters with spaces
+        # Replace non-alphanumeric characters with spaces, preserving case
         filename = re.sub(r'[^\w\s-]', ' ', filename)
         
         # Replace multiple spaces with single space and strip
         filename = ' '.join(filename.split())
         
-        # Replace spaces with underscores
-        filename = filename.replace(' ', '_')
-        
         # Truncate if too long, but try to break at word boundary
         if len(filename) > max_length:
             filename = filename[:max_length]
-            last_underscore = filename.rfind('_')
-            if last_underscore > max_length * 0.8:  # Only truncate at underscore if it's not too short
-                filename = filename[:last_underscore]
+            last_space = filename.rfind(' ')
+            if last_space > max_length * 0.8:  # Only truncate at space if it's not too short
+                filename = filename[:last_space]
         
-        return filename.lower()
+        # Replace problematic characters (if any remain) with safe alternatives
+        filename = filename.replace('/', '-').replace('\\', '-')
+        
+        return filename
 
     def search_arxiv(self, search_params: ArxivSearchParams) -> List[Dict]:
         """Search arXiv using provided search parameters"""
