@@ -4,7 +4,6 @@ import asyncio
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from dotenv import load_dotenv
 from functools import lru_cache
 from pathlib import Path
 from pyzotero import zotero
@@ -15,6 +14,7 @@ import pytz
 import requests
 import re
 import unicodedata
+from credentials import load_credentials, CredentialsError
 
 from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
 from metadata_config import MetadataMapper
@@ -35,40 +35,6 @@ class ZoteroAPIError(Exception):
     pass
 
 @lru_cache(maxsize=32)
-def load_credentials(env_path: str = None) -> dict:
-    """Load credentials from environment variables or .env file with caching"""
-    try:
-        if env_path and not os.path.exists(env_path):
-            raise FileNotFoundError(f"Environment file not found: {env_path}")
-        
-        env_locations = [
-            loc for loc in [
-                env_path if env_path else None,
-                '.env',
-                Path.home() / '.arxiv-zotero' / '.env',
-                Path('/etc/arxiv-zotero/.env')
-            ] if loc and os.path.exists(loc)
-        ]
-        
-        if env_locations:
-            load_dotenv(env_locations[0])
-            logger.info(f"Loaded environment from {env_locations[0]}")
-        
-        required_vars = ['ZOTERO_LIBRARY_ID', 'ZOTERO_API_KEY']
-        credentials = {var: os.getenv(var) for var in required_vars}
-        
-        if None in credentials.values():
-            missing = [k for k, v in credentials.items() if v is None]
-            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
-            
-        return {
-            'library_id': credentials['ZOTERO_LIBRARY_ID'],
-            'api_key': credentials['ZOTERO_API_KEY'],
-            'collection_key': os.getenv('COLLECTION_KEY')
-        }
-    except Exception as e:
-        logger.error(f"Error loading credentials: {str(e)}")
-        raise
 
 class ArxivZoteroCollector:
     def __init__(self, zotero_library_id: str, zotero_api_key: str, collection_key: str = None):
