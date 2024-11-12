@@ -174,8 +174,9 @@ You can add a powerful AI summarization to your workflow! You can automatically 
    - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Create a new API key
    - Add it to your `.env` file:
+   
    ```
-   GEMINI_API_KEY=your_api_key
+   GOOGLE_API_KEY=your_api_key
    ```
 
 2. Configure summarization in `my_search.yaml`:
@@ -222,7 +223,7 @@ python main.py \
   --start-date 2023-06-01 \
   --end-date 2024-01-01
 ```
-### 🎯 Summarizer Use Cases
+### ✨ Summarizer Use Cases
 
 #### Case 4: Simple Explanations
 ```bash
