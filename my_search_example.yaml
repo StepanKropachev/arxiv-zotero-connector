@@ -1,0 +1,58 @@
+# ArXiv-Zotero Connector Query Configuration
+# This is an example configuration file showing all available search parameters
+# Remove or leave empty any parameters you don't want to use
+
+# List of keywords to search across all fields
+# These are combined with OR logic
+keywords:
+  - "transformer architecture"
+  - "attention mechanism"
+  - "large language models"
+
+# Specific term to search for in paper titles only
+# This is useful for finding survey papers or specific topics
+title_search: "survey"
+
+# ArXiv categories to filter papers by
+# Common categories include:
+# - cs.AI (Artificial Intelligence)
+# - cs.LG (Machine Learning)
+# - cs.CL (Computation and Language)
+# - cs.CV (Computer Vision)
+# - cs.RO (Robotics)
+# Full list: https://arxiv.org/category_taxonomy
+categories:
+  - "cs.AI"
+  - "cs.LG"
+  - "cs.CL"
+
+# Author name to search for
+# You can use full names or partial matches
+author: "Yoshua Bengio"
+
+# Date range for papers (YYYY-MM-DD format)
+# Both start_date and end_date are optional
+start_date: "2023-06-01"
+end_date: "2024-03-01"
+
+# Type of content to filter for
+# Options:
+#   - journal: Only papers published in journals
+#   - conference: Only conference papers
+#   - preprint: Only preprints (not yet published)
+# Remove this field to include all types
+content_type: "journal"
+
+# Maximum number of results to return
+# Default is 50 if not specified
+max_results: 25
+
+# Example for specific research area:
+# Uncomment and modify as needed
+#keywords:
+#  - "quantum computing"
+#  - "quantum algorithms"
+#categories:
+#  - "quant-ph"
+#  - "cs.ET"
+#max_results: 10

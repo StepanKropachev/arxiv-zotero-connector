@@ -1,10 +1,9 @@
-*# Python
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -16,26 +15,108 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# Logs
-*.log
-logs/
-zotero_collector.log
+# PyInstaller
+*.manifest
+*.spec
 
-# Environment variables
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environments
 .env
+.env.*
 .venv
+env/
 venv/
 ENV/
+env.bak/
+venv.bak/
+python-virtualenv/
 
 # IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+.*.sw[po]
+.project
+.pydevproject
+.settings
 
-# Downloaded papers
+# Logs
+*.log
+logs/
+arxiv_zotero.log
+zotero_collector.log
+
+# Project specific
 **/arxiv_papers/
+*.pdf
+credentials.json
+config.yaml
+query_config.local.yaml
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows specific
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/

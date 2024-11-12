@@ -1,164 +1,228 @@
-# ArXiv-Zotero Connector
+# 📚 ArXiv-Zotero Connector
 
-A high-performance Python tool to automatically collect ArXiv papers and add them to your Zotero library with rich metadata support.
+Automatically collect papers from ArXiv and organize them in your Zotero library! Perfect for researchers, students, and academics who want to keep their references organized.
 
-## Features
+## ✨ What Can It Do?
 
-- Asynchronous paper processing for improved performance
-- Intelligent metadata mapping with configurable field definitions
-- Advanced search capabilities for ArXiv papers based on keywords
-- Automated Zotero entry creation with comprehensive metadata handling
-- Parallel PDF download and attachment system
-- Smart collection organization in Zotero
-- Configurable search parameters (time range, max results)
-- Connection pooling and rate limiting for robust API interaction
-- Comprehensive error handling and logging
+- 🔍 Search ArXiv papers using keywords, authors, or categories
+- 📥 Automatically download PDFs
+- 📝 Add papers to Zotero with complete metadata
+- 📁 Organize papers into collections
+- ⚡ Process multiple papers simultaneously
+- 📅 Filter papers by date range
+- 🎯 Search specific types of content (journals, conference papers, preprints)
 
-## Architecture
+## 🚀 Quick Start Guide
 
-The connector uses a modular architecture with these key components:
+### Step 1: Set Up Your Computer
 
-- `MetadataMapper`: Flexible metadata field mapping system
-- `ArxivZoteroCollector`: Core collection and processing engine
-- Configuration modules for easy customization:
-  - `metadata_config.py`: Core mapping infrastructure
-  - `arxiv_config.py`: ArXiv-specific field mappings
+1. Make sure you have Python installed (version 3.7 or newer)
+   - Download from [Python's website](https://www.python.org/downloads/)
+   - During installation, make sure to check "Add Python to PATH"
 
-## Installation
+2. Install Git if you don't have it
+   - Download from [Git's website](https://git-scm.com/downloads)
 
-1. Clone the repository:
+### Step 2: Get Your Zotero Credentials 🔑
+
+1. Get your Zotero Library ID:
+   - Go to [Zotero Settings](https://www.zotero.org/settings/)
+   - Click on "Feed Settings"
+   - Your Library ID is the number in "Your user ID for use in API calls is XXXXXX"
+
+2. Create your API Key:
+   - Still in Zotero Settings, go to "API Settings"
+   - Click "Create new private key"
+   - Check all the permissions boxes
+   - Click "Save Key"
+   - Copy the key that appears - you'll need it later!
+
+3. (Optional) Get a Collection Key:
+   - Open your Zotero library in a web browser
+   - Click on the collection (folder) you want to use
+   - Look at the URL - the collection key is the last part (looks like "XXX1XXX0")
+
+### Step 3: Install the Connector
+
+Open your terminal/command prompt and run these commands:
+
 ```bash
+# 1. Get the code
 git clone https://github.com/yourusername/arxiv-zotero-connector.git
 cd arxiv-zotero-connector
-```
 
-2. Create and activate a virtual environment:
-```bash
+# 2. Create a virtual environment
 python -m venv .venv
+
+# 3. Activate the environment
 # On Windows:
 .\.venv\Scripts\activate
-# On Unix/MacOS:
+# On Mac/Linux:
 source .venv/bin/activate
-```
 
-3. Install required packages:
-```bash
+# 4. Install required packages
 pip install -r requirements.txt
 ```
 
-4. Set up your credentials by creating a `.env` file in the project directory:
-```bash
+### Step 4: Set Up Your Credentials
+
+1. Create a file named `.env` in the project folder
+2. Add your credentials like this:
+```
 ZOTERO_LIBRARY_ID=your_library_id
 ZOTERO_API_KEY=your_api_key
 COLLECTION_KEY=your_collection_key  # Optional
 ```
 
-### How to get your_library_id
-1. Go to https://www.zotero.org/settings/
-2. Navigate to *Security* in the left side-bar
-3. Scroll down to *Applications*
-4. Find your User ID in: "Your user ID for use in API calls is XXXXXX"
+## 📖 How to Use
 
-### How to get your_api_key
-1. Go to https://www.zotero.org/settings/
-2. Navigate to *Security* in the left side-bar
-3. Scroll down to *Applications*
-4. Click *Create new private key*
-5. Name it and grant all read/write permissions
-6. Save the generated key
+### Method 1: Using Command Line (Easiest)
 
-### How to get your_collection_key
-1. Open your Zotero web library
-2. Click on the target folder in the sidebar
-3. The collection key is in the URL (format: XXX1XXX0)
-   
-## Usage
+Search for papers about "machine learning" in computer science:
+```bash
+python main.py --keywords "machine learning" --categories cs.AI --max-results 10
+```
+
+Search for recent papers by a specific author:
+```bash
+python main.py --author "John Smith" --start-date 2024-01-01
+```
+
+Download papers without PDFs:
+```bash
+python main.py --keywords "deep learning" --no-pdf
+```
+
+### Method 2: Using a Configuration File
+
+1. Create a file named `my_search.yaml`:
+```yaml
+keywords:
+  - "reinforcement learning"
+  - "deep learning"
+categories:
+  - "cs.AI"
+  - "cs.LG"
+max_results: 20
+start_date: "2024-01-01"
+```
+
+2. Run using the config file:
+```bash
+python main.py --config my_search.yaml
+```
+
+### Method 3: Using Python Code
 
 ```python
-from connector import ArxivZoteroCollector
-from metadata_config import MetadataMapper
-from arxiv_config import ARXIV_TO_ZOTERO_MAPPING
+from src.core.connector import ArxivZoteroCollector
+from src.core.search_params import ArxivSearchParams
+from src.utils.credentials import load_credentials
 
-# Initialize the metadata mapper
-metadata_mapper = MetadataMapper(ARXIV_TO_ZOTERO_MAPPING)
+# Load your credentials
+credentials = load_credentials()
 
-# Initialize the collector
+# Create the collector
 collector = ArxivZoteroCollector(
     zotero_library_id=credentials['library_id'],
     zotero_api_key=credentials['api_key'],
-    collection_key=credentials['collection_key'],  # Optional
-    metadata_mapper=metadata_mapper
+    collection_key=credentials['collection_key']  # Optional
 )
 
-keywords = [
-    "multi-agent systems",
-    "moral agents AI",
-    "agent decision making"
-]
+# Set up your search
+search_params = ArxivSearchParams(
+    keywords=["artificial intelligence"],
+    categories=["cs.AI"],
+    max_results=10
+)
 
-# Asynchronously collect papers
-successful, failed = await collector.run_collection(
-    keywords=keywords,
-    max_results=5,
-    days_back=7,
-    download_pdfs=True,
-    concurrent_downloads=3  # Control concurrent operations
+# Run the collection
+successful, failed = await collector.run_collection_async(
+    search_params=search_params,
+    download_pdfs=True
 )
 ```
 
-## Configuration Parameters
+## 📝 Common Search Options
 
-### Core Parameters
-- `keywords`: List of search terms for ArXiv
-- `max_results`: Maximum number of papers to process
-- `days_back`: How far back to search for papers
-- `download_pdfs`: Whether to download and attach PDFs
+- `--keywords` or `-k`: Words to search for
+- `--title` or `-t`: Search in paper titles only
+- `--categories` or `-c`: ArXiv categories (like cs.AI, physics.comp-ph)
+- `--author` or `-a`: Author name
+- `--start-date`: Start date (YYYY-MM-DD)
+- `--end-date`: End date (YYYY-MM-DD)
+- `--max-results` or `-m`: Maximum number of papers to get
+- `--no-pdf`: Skip downloading PDFs
 
-### Performance Tuning
-- `concurrent_downloads`: Number of concurrent paper downloads (default: 3)
-- `request_delay`: Delay between API requests in seconds (default: 1)
-- `max_retries`: Maximum number of retry attempts for failed requests (default: 3)
+## 🗂️ Popular ArXiv Categories
 
-## Metadata Configuration
+- `cs.AI`: Artificial Intelligence
+- `cs.LG`: Machine Learning
+- `cs.CL`: Computation and Language
+- `cs.CV`: Computer Vision
+- `physics.comp-ph`: Computational Physics
+- `math.NA`: Numerical Analysis
+- `q-bio`: Quantitative Biology
 
-You can customize metadata mapping by modifying `arxiv_config.py`:
+## 🔍 Example Use Cases
 
-```python
-ARXIV_TO_ZOTERO_MAPPING = {
-    'id': 'archiveLocation',
-    'primary_category': 'extra',
-    'title': 'title',
-    # Add custom mappings here
-}
+### Case 1: Literature Review
+```bash
+python main.py \
+  --keywords "survey" "review" "deep learning" \
+  --categories cs.AI cs.LG \
+  --start-date 2023-01-01 \
+  --content-type journal
 ```
 
-## Error Handling and Logs
+### Case 2: Latest Research
+```bash
+python main.py \
+  --keywords "transformer" "attention mechanism" \
+  --categories cs.CL \
+  --start-date 2024-01-01 \
+  --max-results 20
+```
 
-The system provides comprehensive logging in `zotero_collector.log`:
-- Operation tracking with async context
-- Detailed error messages and stack traces
-- API response monitoring
-- Performance metrics
+### Case 3: Conference Papers
+```bash
+python main.py \
+  --keywords "reinforcement learning" \
+  --content-type conference \
+  --start-date 2023-06-01 \
+  --end-date 2024-01-01
+```
 
-## Roadmap
+## ❓ Troubleshooting
 
-- [ ] Intelligent paper summarization with AI integration
-- [ ] CRON job functionality for automated collection
-- [ ] User interface for easy configuration
-- [ ] Advanced storage management
-- [ ] Custom metadata transformation rules
-- [ ] Batch processing improvements
+### Common Issues:
 
-## Contributing
+1. **"Command not found" error:**
+   - Make sure you're in the right directory
+   - Check if Python is installed correctly
+   - Try using `python3` instead of `python`
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes:
+2. **Credentials not working:**
+   - Double-check your Library ID and API key
+   - Make sure there are no spaces in your `.env` file
+   - Check if your API key has the right permissions
 
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+3. **Downloads failing:**
+   - Check your internet connection
+   - Make sure you have enough disk space
+   - Try reducing `max_results`
 
-## License
+4. **Program seems stuck:**
+   - ArXiv has rate limits
+   - For large downloads, be patient
+   - Try reducing `max_results`
 
-MIT License
+## 📫 Need Help?
+
+- 🐛 Found a bug? Open an issue on GitHub
+- 💡 Have a suggestion? We'd love to hear it!
+- 🤝 Want to contribute? Check out our contributing guidelines
+
+## 📜 License
+
+MIT License - Feel free to use and modify!
