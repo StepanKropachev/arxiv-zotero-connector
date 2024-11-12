@@ -1,0 +1,31 @@
+# ArXiv Query Configuration
+# All fields are optional - remove or leave empty if not needed
+
+# General search keywords (list)
+keywords:
+  - "reinforcement learning"
+  - "deep learning"
+
+# Search specifically in titles (string)
+title_search: "survey"
+
+# ArXiv categories to search in (list)
+# Example categories: cs.AI, cs.LG, cs.MA, etc.
+categories:
+  - "cs.AI"
+  - "cs.LG"
+
+# Author name to search for (string)
+author: "John Smith"
+
+# Date range for papers
+# Format: YYYY-MM-DD
+start_date: "2023-01-01"
+end_date: "2024-01-01"
+
+# Type of content to filter for
+# Allowed values: journal, conference, preprint
+content_type: "journal"
+
+# Maximum number of results to return (integer)
+max_results: 50

@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+import yaml
 
 from src.core.connector import ArxivZoteroCollector
 from src.core.search_params import ArxivSearchParams
@@ -30,10 +31,24 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
     except ValueError:
         raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
 
+def load_yaml_config(config_path: Path) -> dict:
+    """Load search parameters from YAML configuration file"""
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        raise argparse.ArgumentTypeError(f"Error loading config file: {str(e)}")
+
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
         description='ArXiv-Zotero Connector: Download and organize arXiv papers in Zotero'
+    )
+
+    parser.add_argument(
+    '--config',
+    type=Path,
+    help='Path to YAML configuration file'
     )
     
     # Search parameters
@@ -107,16 +122,21 @@ async def main():
             collection_key=credentials['collection_key']
         )
         
-        # Create search parameters
+        # Load YAML config if provided
+        config_params = {}
+        if args.config:
+            config_params = load_yaml_config(args.config)
+        
+        # Merge command line arguments with config file, preferring command line
         search_params = ArxivSearchParams(
-            keywords=args.keywords,
-            title_search=args.title,
-            categories=args.categories,
-            author=args.author,
-            start_date=args.start_date,
-            end_date=args.end_date,
-            content_type=args.content_type,
-            max_results=args.max_results
+            keywords=args.keywords or config_params.get('keywords'),
+            title_search=args.title or config_params.get('title_search'),
+            categories=args.categories or config_params.get('categories'),
+            author=args.author or config_params.get('author'),
+            start_date=args.start_date or parse_date(config_params.get('start_date')),
+            end_date=args.end_date or parse_date(config_params.get('end_date')),
+            content_type=args.content_type or config_params.get('content_type'),
+            max_results=args.max_results if args.max_results != 50 else config_params.get('max_results', 50)
         )
         
         # Run collection process
