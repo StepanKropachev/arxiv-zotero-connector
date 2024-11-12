@@ -1,14 +1,14 @@
-# 📚 ArXiv-Zotero Connector
+# 📚 ArXiv-Zotero Connector with AI Summarization
 
-Automatically collect papers from ArXiv and organize them in your Zotero library! Perfect for researchers, students, and academics who want to keep their references organized.
+Automatically collect papers from ArXiv and organize them in your Zotero library with AI-powered paper summarization! Perfect for researchers, students, and academics who want to keep their paper collections and references organized.
 
 ## ✨ What Can It Do?
 
 - 🔍 Search ArXiv papers using keywords, authors, or categories
 - 📥 Automatically download PDFs
+- 🤖 AI-powered summarization of papers
 - 📝 Add papers to Zotero with complete metadata
 - 📁 Organize papers into collections
-- ⚡ Process multiple papers simultaneously
 - 📅 Filter papers by date range
 - 🎯 Search specific types of content (journals, conference papers, preprints)
 
@@ -164,6 +164,36 @@ successful, failed = await collector.run_collection_async(
 - `math.NA`: Numerical Analysis
 - `q-bio`: Quantitative Biology
 
+## 🤖 AI Paper Summarizer (Optional)
+
+You can add a powerful AI summarization to your workflow! You can automatically generate summaries of your papers using Google's Gemini API and attach those to your collection items in Zotero.
+
+### 🔑 Setting Up the Summarizer
+
+1. Get your Gemini API Key:
+   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create a new API key
+   - Add it to your `.env` file:
+   ```
+   GEMINI_API_KEY=your_api_key
+   ```
+
+2. Configure summarization in `my_search.yaml`:
+   ```yaml
+   summarizer:
+     enabled: true  # Turn summarization on/off
+     prompt: "Your custom prompt here"
+     max_length: 300  # Maximum summary length
+     rate_limit_delay: 5  # Delay between API requests
+   ```
+
+### ⚙️ Advanced Summarizer Options
+
+- `--summarizer-enabled`: Enable/disable summarization
+- `--summarizer-prompt`: Custom prompt for the AI
+- `--summary-length`: Maximum length of summaries
+- `--rate-limit`: Time between API requests (seconds)
+
 ## 🔍 Example Use Cases
 
 ### Case 1: Literature Review
@@ -192,6 +222,31 @@ python main.py \
   --start-date 2023-06-01 \
   --end-date 2024-01-01
 ```
+### 🎯 Summarizer Use Cases
+
+#### Case 4: Simple Explanations
+```bash
+python main.py \
+  --keywords "quantum computing" \
+  --summarizer-prompt "Explain this research paper as if you're talking to a high school student" \
+  --max-results 5
+```
+
+#### Case 5: Multilingual Summaries
+```bash
+python main.py \
+  --keywords "machine learning" \
+  --summarizer-prompt "Summarize this paper in Russian, focusing on methodology and results" \
+  --max-results 3
+```
+
+#### Case 6: Social Media Briefs
+```bash
+python main.py \
+  --keywords "artificial intelligence" "ethics" \
+  --summarizer-prompt "Create a Twitter-style thread (5 tweets max) explaining the key findings" \
+  --start-date 2024-01-01
+```
 
 ## ❓ Troubleshooting
 
@@ -217,11 +272,28 @@ python main.py \
    - For large downloads, be patient
    - Try reducing `max_results`
 
+### ⚠️ AI-summarizer Troubleshooting
+
+1. **"API Key Invalid" error:**
+   - Check if GEMINI_API_KEY is correctly set in .env
+   - Verify API key permissions
+   - Ensure key hasn't expired
+
+2. **Rate Limit Issues:**
+   - Increase rate_limit_delay in config
+   - Process fewer papers at once
+   - Check Gemini API quotas
+
+3. **Summary Quality:**
+   - Adjust your prompt for better results
+   - Try different max_length values
+   - Use more specific instructions
+
 ## 📫 Need Help?
 
 - 🐛 Found a bug? Open an issue on GitHub
-- 💡 Have a suggestion? We'd love to hear it!
-- 🤝 Want to contribute? Check out our contributing guidelines
+- 💡 Have a suggestion? I'd love to hear it!
+- 🤝 Want to contribute? You're more then welcome!
 
 ## 📜 License
 
