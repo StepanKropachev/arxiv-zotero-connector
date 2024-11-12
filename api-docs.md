@@ -319,6 +319,82 @@ def load_credentials(env_path: str = None) -> dict:
     """
 ```
 
+### PaperSummarizer
+
+Handles the generation of paper summaries using Google's Gemini API.
+
+```python
+class PaperSummarizer:
+    def __init__(self, api_key: str, config: Dict):
+        """
+        Initialize the summarizer with Gemini API key and configuration.
+        
+        Args:
+            api_key: Google API key for Gemini
+            config: Configuration dictionary containing summarizer settings
+        """
+```
+
+#### Methods
+
+```python
+async def summarize(
+    self,
+    pdf_path: Path,
+    zotero_client=None,
+    item_key: Optional[str] = None
+) -> Optional[str]:
+    """
+    Summarize PDF content and optionally add to Zotero.
+    
+    Args:
+        pdf_path: Path to the PDF file
+        zotero_client: Optional ZoteroClient instance
+        item_key: Optional Zotero item key to attach summary to
+        
+    Returns:
+        Optional[str]: Generated summary if successful, None otherwise
+    """
+```
+
+#### Example Usage
+
+```python
+from src.utils.summarizer import PaperSummarizer
+from pathlib import Path
+
+config = {
+    'summarizer': {
+        'enabled': True,
+        'prompt': 'Summarize this academic paper. Include main objectives and conclusions.',
+        'max_length': 300,
+        'rate_limit_delay': 5
+    }
+}
+
+summarizer = PaperSummarizer(
+    api_key='your_gemini_api_key',
+    config=config
+)
+
+# Generate summary
+pdf_path = Path('path/to/paper.pdf')
+summary = await summarizer.summarize(
+    pdf_path=pdf_path,
+    zotero_client=zotero_client,  # Optional
+    item_key='ITEM_KEY'  # Optional
+)
+```
+
+#### Configuration Options
+
+The summarizer accepts the following configuration options in the `config['summarizer']` dictionary:
+
+- `enabled` (bool): Whether summarization is enabled
+- `prompt` (str): Custom prompt for the summarization task
+- `max_length` (int): Maximum length of generated summary in characters
+- `rate_limit_delay` (int): Delay between API requests in seconds
+
 ## Complete Example
 
 Here's a complete example showing how to use the major components together:
@@ -329,16 +405,35 @@ from datetime import datetime
 from src.core.connector import ArxivZoteroCollector
 from src.core.search_params import ArxivSearchParams
 from src.utils.credentials import load_credentials
+from src.utils.summarizer import PaperSummarizer
 
 async def main():
     # Load credentials
     credentials = load_credentials()
     
-    # Initialize collector
+    # Configure summarizer
+    summarizer_config = {
+        'summarizer': {
+            'enabled': True,
+            'prompt': 'Summarize this academic paper. Include: main objectives, methodology, key findings, and conclusions.',
+            'max_length': 300,
+            'rate_limit_delay': 5
+        }
+    }
+    
+    # Initialize summarizer
+    summarizer = PaperSummarizer(
+        api_key=credentials['gemini_api_key'],
+        config=summarizer_config
+    )
+    
+    # Initialize collector with summarizer
     collector = ArxivZoteroCollector(
         zotero_library_id=credentials['library_id'],
         zotero_api_key=credentials['api_key'],
-        collection_key=credentials['collection_key']
+        collection_key=credentials['collection_key'],
+        summarizer=summarizer,
+        config=summarizer_config
     )
     
     # Create search parameters
