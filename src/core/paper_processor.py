@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class PaperProcessor:
     """Class to handle the processing of individual papers"""
     
-    def __init__(self, zotero_client, metadata_mapper, pdf_manager):
+    def __init__(self, zotero_client, metadata_mapper, pdf_manager, summarizer, config):
         """
         Initialize the paper processor
         
@@ -17,10 +17,14 @@ class PaperProcessor:
             zotero_client: Instance of ZoteroClient
             metadata_mapper: Instance of MetadataMapper
             pdf_manager: Instance of PDFManager
+            summarizer: Instance of PaperSummarizer
+            config: Application configuration dict
         """
         self.zotero_client = zotero_client
         self.metadata_mapper = metadata_mapper
         self.pdf_manager = pdf_manager
+        self.summarizer = summarizer
+        self.config = config
         self.collection_key = zotero_client.collection_key
 
     def create_zotero_item(self, paper: Dict) -> Optional[str]:
@@ -107,7 +111,14 @@ class PaperProcessor:
                         return False
                     
                     logger.info(f"Successfully processed PDF attachment for item {item_key}")
-                    
+
+                    if self.summarizer and self.config.get('summarizer', {}).get('enabled'):
+                        await self.summarizer.summarize(
+                            pdf_path, 
+                            self.zotero_client,
+                            item_key
+                        )
+
                 except Exception as e:
                     logger.error(f"Error in PDF processing: {str(e)}")
                     return False

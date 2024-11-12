@@ -55,11 +55,19 @@ def load_credentials(env_path: str = None) -> dict:
             missing = [k for k, v in credentials.items() if v is None]
             raise CredentialsError(f"Missing required environment variables: {', '.join(missing)}")
             
-        # Return credentials including optional collection_key
+        # Load optional variables
+        optional_vars = ['COLLECTION_KEY', 'GOOGLE_API_KEY']
+        optional_credentials = {var: os.getenv(var) for var in optional_vars}
+        
+        # Merge required and optional credentials
+        credentials.update(optional_credentials)
+        
+        # Return credentials
         return {
             'library_id': credentials['ZOTERO_LIBRARY_ID'],
             'api_key': credentials['ZOTERO_API_KEY'],
-            'collection_key': os.getenv('COLLECTION_KEY')
+            'collection_key': credentials.get('COLLECTION_KEY'),
+            'gemini_api_key': credentials.get('GOOGLE_API_KEY')
         }
         
     except Exception as e:

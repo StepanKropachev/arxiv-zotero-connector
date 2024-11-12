@@ -1,6 +1,7 @@
 import asyncio
 from typing import List, Dict, Tuple
 import logging
+from typing import Optional
 
 from ..utils.credentials import load_credentials
 from ..config.arxiv_config import ARXIV_TO_ZOTERO_MAPPING
@@ -10,6 +11,7 @@ from ..utils.pdf_manager import PDFManager
 from ..clients.arxiv_client import ArxivClient
 from ..clients.zotero_client import ZoteroClient
 from .paper_processor import PaperProcessor
+from ..utils.summarizer import PaperSummarizer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,16 +24,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ArxivZoteroCollector:
-    def __init__(self, zotero_library_id: str, zotero_api_key: str, collection_key: str = None):
+    def __init__(self, zotero_library_id: str, zotero_api_key: str, collection_key: str = None, summarizer: Optional[PaperSummarizer] = None, config: Optional[dict] = None):
         self.collection_key = collection_key
         self.zotero_client = ZoteroClient(zotero_library_id, zotero_api_key, collection_key)
         self.metadata_mapper = MetadataMapper(ARXIV_TO_ZOTERO_MAPPING)
         self.pdf_manager = PDFManager()
         self.paper_processor = PaperProcessor(
-        self.zotero_client,
-        self.metadata_mapper,
-        self.pdf_manager
-    )
+            self.zotero_client,
+            self.metadata_mapper,
+            self.pdf_manager,
+            summarizer,
+            config
+        )
         self.arxiv_client = ArxivClient()        
         self.async_session = None
         

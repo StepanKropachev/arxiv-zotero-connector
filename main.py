@@ -10,6 +10,7 @@ import yaml
 from src.core.connector import ArxivZoteroCollector
 from src.core.search_params import ArxivSearchParams
 from src.utils.credentials import load_credentials, CredentialsError
+from src.utils.summarizer import PaperSummarizer
 
 # Configure logging
 logging.basicConfig(
@@ -27,7 +28,7 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
     if not date_str:
         return None
     try:
-        return datetime.strptime(date_str, '%Y-%m-%d')
+        return datetime.strptime(date_str, '%Y-%m-%D')
     except ValueError:
         raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
 
@@ -110,22 +111,31 @@ async def main():
     """Main entry point for the application"""
     args = parse_arguments()
     collector = None
+    config_params = {}
     
     try:
         # Load credentials
         credentials = load_credentials(args.env_file)
         
+        # Load YAML config if provided
+        if args.config:
+            config_params = load_yaml_config(args.config)
+
+        summarizer = None
+        if config_params.get('summarizer', {}).get('enabled'):
+            summarizer = PaperSummarizer(
+                api_key=credentials['gemini_api_key'],  # Add Gemini API key to credentials 
+                config=config_params
+            )
+        
         # Initialize collector
         collector = ArxivZoteroCollector(
             zotero_library_id=credentials['library_id'],
             zotero_api_key=credentials['api_key'],
-            collection_key=credentials['collection_key']
+            collection_key=credentials['collection_key'],
+            summarizer=summarizer,  # Pass summarizer to collector
+            config=config_params
         )
-        
-        # Load YAML config if provided
-        config_params = {}
-        if args.config:
-            config_params = load_yaml_config(args.config)
         
         # Merge command line arguments with config file, preferring command line
         search_params = ArxivSearchParams(

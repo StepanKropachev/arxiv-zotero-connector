@@ -1,31 +1,38 @@
-# ArXiv Query Configuration
-# All fields are optional - remove or leave empty if not needed
+# ArXiv Query Configuration for Multi-Agent Papers
+# Configuration to retrieve recent papers on multi-agent systems in computer science
 
-# General search keywords (list)
+# General search keywords
 keywords:
-  - "reinforcement learning"
-  - "deep learning"
+  - "multi-agent"
+  - "multi agent"
+  - "multiagent"
+  - "multi-agent systems"
+  - "multiagent systems"
 
-# Search specifically in titles (string)
-title_search: "survey"
+# Search specifically in titles (optional, comment out if not needed)
+# title_search: "multi-agent"
 
-# ArXiv categories to search in (list)
-# Example categories: cs.AI, cs.LG, cs.MA, etc.
+# ArXiv categories to search in
+# Using computer science categories relevant to multi-agent systems
 categories:
-  - "cs.AI"
-  - "cs.LG"
-
-# Author name to search for (string)
-author: "John Smith"
+  - "cs.AI"    # Artificial Intelligence
+  - "cs.MA"    # Multiagent Systems
+  - "cs.LG"    # Machine Learning
+  - "cs.GT"    # Game Theory
 
 # Date range for papers
-# Format: YYYY-MM-DD
-start_date: "2023-01-01"
-end_date: "2024-01-01"
+# Setting for the last 7 days from today
+start_date:  # 7 days ago
+end_date:     # today
 
-# Type of content to filter for
-# Allowed values: journal, conference, preprint
-content_type: "journal"
+# Type of content (optional, comment out if you want all types)
+# content_type: "preprint"
 
-# Maximum number of results to return (integer)
-max_results: 50
+# Maximum number of results to return
+max_results: 10
+
+summarizer:
+  enabled: true  # Set to true to enable summarization
+  prompt: "Summarize this academic paper. Include: main objectives, methodology, key findings, and conclusions. Keep it concise."
+  max_length: 300  # Maximum length of summary in characters
+  rate_limit_delay: 5  # Delay between API requests in seconds

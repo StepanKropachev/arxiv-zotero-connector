@@ -6,3 +6,5 @@ python-dotenv
 asyncio
 aiohttp
 pyyaml
+typing
+google.generativeai
