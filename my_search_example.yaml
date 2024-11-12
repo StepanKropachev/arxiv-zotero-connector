@@ -56,3 +56,15 @@ max_results: 25
 #  - "quant-ph"
 #  - "cs.ET"
 #max_results: 10
+
+summarizer:
+  enabled: false  # Set to true to enable summarization
+  prompt: |
+    Analyze this paper and in no more that 1000 characters explain in simple, everyday language why should someone care about this research? 
+    Explain what problem it solves and why it's interesting or important.
+    What are the main takeaways? Focus on practical implications and surprising findings.
+    Avoid technical jargon and write as if explaining to a curious friend who isn't an expert in the field. Help readers quickly understand if this paper is worth their time.
+    Be concise as possible.
+    Omit the headers, write everything in one passage.
+  max_length: 1000  # Maximum length of summary in characters
+  rate_limit_delay: 3  # Delay between API requests in seconds
