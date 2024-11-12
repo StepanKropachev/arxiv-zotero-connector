@@ -22,14 +22,14 @@ categories:
 
 # Date range for papers
 # Setting for the last 7 days from today
-start_date:  # 7 days ago
-end_date:     # today
+start_date: "2023-01-01"  # 7 days ago
+end_date: "2024-11-12"     # today
 
 # Type of content (optional, comment out if you want all types)
 # content_type: "preprint"
 
 # Maximum number of results to return
-max_results: 10
+max_results: 5
 
 summarizer:
   enabled: true  # Set to true to enable summarization

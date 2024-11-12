@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import yaml
+import pytz
 
 from src.core.connector import ArxivZoteroCollector
 from src.core.search_params import ArxivSearchParams
@@ -28,10 +29,12 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
     if not date_str:
         return None
     try:
-        return datetime.strptime(date_str, '%Y-%m-%D')
+        # Add timezone awareness to parsed date
+        parsed_date = datetime.strptime(date_str, '%Y-%m-%d')
+        return parsed_date.replace(tzinfo=pytz.UTC)  # Make timezone-aware
     except ValueError:
         raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
-
+        
 def load_yaml_config(config_path: Path) -> dict:
     """Load search parameters from YAML configuration file"""
     try:
