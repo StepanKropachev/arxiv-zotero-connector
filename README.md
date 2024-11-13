@@ -48,8 +48,8 @@ Open your terminal/command prompt and run:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/StepanKropachev/Arxiv-Zotero-Connector.git
-cd Arxiv-Zotero-Connector
+git clone https://github.com/StepanKropachev/arxiv-zotero-connector.git
+cd arxiv-zotero-connector
 
 # 2. Create a virtual environment
 python -m venv .venv
