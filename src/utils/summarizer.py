@@ -62,14 +62,14 @@ class PaperSummarizer:
             summary = response.text[:max_length]
 
             # Save summary to file
-            summary_path = pdf_path.with_suffix('.summary.txt')
+            summary_path = pdf_path.with_suffix('.summary.md')
             with open(summary_path, 'w', encoding='utf-8') as f:
                 f.write(f"Summary of: {pdf_path.name}\n\n{summary}")
 
             # Add note to Zotero if client and item_key provided
             if zotero_client and item_key:
                 note_template = zotero_client.zot.item_template('note')
-                note_template['note'] = f"<p><strong>AI Generated Summary:</strong></p><p>{summary}</p>"
+                note_template['note'] = f"<p><strong>AI Generated Summary</strong></p><p>{summary}</p>"
                 note_template['parentItem'] = item_key
                 zotero_client.zot.create_items([note_template])
 
