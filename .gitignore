@@ -103,7 +103,7 @@ zotero_collector.log
 *.pdf
 credentials.json
 config.yaml
-query_config.local.yaml
+query_config.yaml
 
 # macOS specific
 .DS_Store

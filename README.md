@@ -48,7 +48,7 @@ Open your terminal/command prompt and run these commands:
 
 ```bash
 # 1. Get the code
-git clone https://github.com/yourusername/arxiv-zotero-connector.git
+git clone https://github.com/StepanKropachev/Arxiv-Zotero-Connector.git
 cd arxiv-zotero-connector
 
 # 2. Create a virtual environment
