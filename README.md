@@ -2,7 +2,7 @@
 
 Automatically collect papers from ArXiv and organize them in your Zotero library with AI-powered paper summarization! Perfect for researchers, students, and academics who want to keep their paper collections and references organized.
 
-## ✨ What Can It Do?
+## ✨ Features
 
 - 🔍 Search ArXiv papers using keywords, authors, or categories
 - 📥 Automatically download PDFs
@@ -12,42 +12,42 @@ Automatically collect papers from ArXiv and organize them in your Zotero library
 - 📅 Filter papers by date range
 - 🎯 Search specific types of content (journals, conference papers, preprints)
 
-## 🚀 Quick Start Guide
+## 🚀 Getting Started
 
-### Step 1: Set Up Your Computer
+### 1️⃣ Set Up
 
-1. Make sure you have Python installed (version 3.7 or newer)
+1. Install Python (version 3.7 or newer)
    - Download from [Python's website](https://www.python.org/downloads/)
-   - During installation, make sure to check "Add Python to PATH"
+   - During installation, check "Add Python to PATH"
 
-2. Install Git if you don't have it
+2. Install Git
    - Download from [Git's website](https://git-scm.com/downloads)
 
-### Step 2: Get Your Zotero Credentials 🔑
+### 2️⃣ Get Your Zotero Credentials 🔑
 
 1. Get your Zotero Library ID:
-   - Go to [Zotero Settings](https://www.zotero.org/settings/)
-   - Click on "Feed Settings"
-   - Your Library ID is the number in "Your user ID for use in API calls is XXXXXX"
+   - Visit [Zotero Settings](https://www.zotero.org/settings/)
+   - Navigate to "Feed Settings"
+   - Find "Your user ID for use in API calls is XXXXXX"
 
 2. Create your API Key:
-   - Still in Zotero Settings, go to "API Settings"
+   - In Zotero Settings, go to "API Settings"
    - Click "Create new private key"
-   - Check all the permissions boxes
+   - Enable all permissions
    - Click "Save Key"
-   - Copy the key that appears - you'll need it later!
+   - Copy the generated key
 
 3. (Optional) Get a Collection Key:
    - Open your Zotero library in a web browser
-   - Click on the collection (folder) you want to use
-   - Look at the URL - the collection key is the last part (looks like "XXX1XXX0")
+   - Select the desired collection (folder)
+   - The collection key is the last part of the URL (format: "XXX1XXX0")
 
-### Step 3: Install the Connector
+### 3️⃣ Install the Connector
 
-Open your terminal/command prompt and run these commands:
+Open your terminal/command prompt and run:
 
 ```bash
-# 1. Get the code
+# 1. Clone the repository
 git clone https://github.com/StepanKropachev/Arxiv-Zotero-Connector.git
 cd Arxiv-Zotero-Connector
 
@@ -60,23 +60,23 @@ python -m venv .venv
 # On Mac/Linux:
 source .venv/bin/activate
 
-# 4. Install required packages
+# 4. Install dependencies
 pip install -r requirements.txt
 ```
 
-### Step 4: Set Up Your Credentials
+### 4️⃣ Configure Your Credentials
 
-1. Create a file named `.env` in the project folder
-2. Add your credentials like this:
+1. Create a `.env` file in the project folder
+2. Add your credentials:
 ```
 ZOTERO_LIBRARY_ID=your_library_id
 ZOTERO_API_KEY=your_api_key
 COLLECTION_KEY=your_collection_key  # Optional
 ```
 
-## 📖 How to Use
+## 📖 Usage Methods
 
-### Method 1: Using Command Line (Easiest)
+### 1️⃣ Command Line Interface (CLI)
 
 Search for papers about "machine learning" in computer science:
 ```bash
@@ -93,9 +93,9 @@ Download papers without PDFs:
 python main.py --keywords "deep learning" --no-pdf
 ```
 
-### Method 2: Using a Configuration File
+### 2️⃣ Configuration File
 
-1. Create a file named `my_search.yaml`:
+1. Create `my_search.yaml`:
 ```yaml
 keywords:
   - "reinforcement learning"
@@ -107,54 +107,54 @@ max_results: 20
 start_date: "2024-01-01"
 ```
 
-2. Run using the config file:
+2. Run with config:
 ```bash
 python main.py --config my_search.yaml
 ```
 
-### Method 3: Using Python Code
+### 3️⃣ Python API
 
 ```python
 from src.core.connector import ArxivZoteroCollector
 from src.core.search_params import ArxivSearchParams
 from src.utils.credentials import load_credentials
 
-# Load your credentials
+# Load credentials
 credentials = load_credentials()
 
-# Create the collector
+# Create collector
 collector = ArxivZoteroCollector(
     zotero_library_id=credentials['library_id'],
     zotero_api_key=credentials['api_key'],
     collection_key=credentials['collection_key']  # Optional
 )
 
-# Set up your search
+# Configure search
 search_params = ArxivSearchParams(
     keywords=["artificial intelligence"],
     categories=["cs.AI"],
     max_results=10
 )
 
-# Run the collection
+# Run collection
 successful, failed = await collector.run_collection_async(
     search_params=search_params,
     download_pdfs=True
 )
 ```
 
-## 📝 Common Search Options
+## 🎛️ Search Options
 
-- `--keywords` or `-k`: Words to search for
-- `--title` or `-t`: Search in paper titles only
-- `--categories` or `-c`: ArXiv categories (like cs.AI, physics.comp-ph)
+- `--keywords` or `-k`: Search terms
+- `--title` or `-t`: Search in titles only
+- `--categories` or `-c`: ArXiv categories
 - `--author` or `-a`: Author name
 - `--start-date`: Start date (YYYY-MM-DD)
 - `--end-date`: End date (YYYY-MM-DD)
-- `--max-results` or `-m`: Maximum number of papers to get
-- `--no-pdf`: Skip downloading PDFs
+- `--max-results` or `-m`: Maximum papers to retrieve
+- `--no-pdf`: Skip PDF downloads
 
-## 🗂️ Popular ArXiv Categories
+## 📑 Popular ArXiv Categories
 
 - `cs.AI`: Artificial Intelligence
 - `cs.LG`: Machine Learning
@@ -164,40 +164,39 @@ successful, failed = await collector.run_collection_async(
 - `math.NA`: Numerical Analysis
 - `q-bio`: Quantitative Biology
 
-## 🤖 AI Paper Summarizer (Optional)
+## 🤖 AI Paper Summarizer
 
-You can add a powerful AI summarization to your workflow! You can automatically generate summaries of your papers using Google's Gemini API and attach those to your collection items in Zotero.
-
-### 🔑 Setting Up the Summarizer
+### 🔑 Setup Instructions
 
 1. Get your Gemini API Key:
-   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Create a new API key
-   - Add it to your `.env` file:
-   
+   - Add to `.env`:
    ```
    GOOGLE_API_KEY=your_api_key
    ```
 
-2. Configure summarization in `my_search.yaml`:
+2. Configure in `my_search.yaml`:
    ```yaml
    summarizer:
-     enabled: true  # Turn summarization on/off
+     enabled: true
      prompt: "Your custom prompt here"
-     max_length: 300  # Maximum summary length
-     rate_limit_delay: 5  # Delay between API requests
+     max_length: 300
+     rate_limit_delay: 5
    ```
 
-### ⚙️ Advanced Summarizer Options
+### ⚙️ Summarizer Options
 
-- `--summarizer-enabled`: Enable/disable summarization
-- `--summarizer-prompt`: Custom prompt for the AI
-- `--summary-length`: Maximum length of summaries
-- `--rate-limit`: Time between API requests (seconds)
+- `--summarizer-enabled`: Toggle summarization
+- `--summarizer-prompt`: Custom AI prompt
+- `--summary-length`: Maximum summary length
+- `--rate-limit`: API request delay (seconds)
 
-## 🔍 Example Use Cases
+## 🎯 Example Use Cases
 
-### Case 1: Literature Review
+### 📚 Research Examples
+
+#### Literature Review
 ```bash
 python main.py \
   --keywords "survey" "review" "deep learning" \
@@ -206,7 +205,7 @@ python main.py \
   --content-type journal
 ```
 
-### Case 2: Latest Research
+#### Latest Research
 ```bash
 python main.py \
   --keywords "transformer" "attention mechanism" \
@@ -215,7 +214,7 @@ python main.py \
   --max-results 20
 ```
 
-### Case 3: Conference Papers
+#### Conference Papers
 ```bash
 python main.py \
   --keywords "reinforcement learning" \
@@ -223,9 +222,10 @@ python main.py \
   --start-date 2023-06-01 \
   --end-date 2024-01-01
 ```
-### ✨ Summarizer Use Cases
 
-#### Case 4: Simple Explanations
+### 🤖 Summarizer Examples
+
+#### Simple Explanations
 ```bash
 python main.py \
   --keywords "quantum computing" \
@@ -233,7 +233,7 @@ python main.py \
   --max-results 5
 ```
 
-#### Case 5: Multilingual Summaries
+#### Multilingual Summaries
 ```bash
 python main.py \
   --keywords "machine learning" \
@@ -241,7 +241,7 @@ python main.py \
   --max-results 3
 ```
 
-#### Case 6: Social Media Briefs
+#### Social Media Briefs
 ```bash
 python main.py \
   --keywords "artificial intelligence" "ethics" \
@@ -251,51 +251,58 @@ python main.py \
 
 ## ❓ Troubleshooting
 
-### Common Issues:
+### 🔧 Common Issues
 
-1. **"Command not found" error:**
-   - Make sure you're in the right directory
-   - Check if Python is installed correctly
-   - Try using `python3` instead of `python`
+#### Command Line Issues
+- **"Command not found" error:**
+  - Verify correct directory
+  - Confirm Python installation
+  - Try `python3` instead of `python`
 
-2. **Credentials not working:**
-   - Double-check your Library ID and API key
-   - Make sure there are no spaces in your `.env` file
-   - Check if your API key has the right permissions
+#### Authentication Issues
+- **Credentials not working:**
+  - Verify Library ID and API key
+  - Check `.env` file formatting
+  - Confirm API permissions
 
-3. **Downloads failing:**
-   - Check your internet connection
-   - Make sure you have enough disk space
-   - Try reducing `max_results`
+#### Download Issues
+- **Downloads failing:**
+  - Check internet connection
+  - Verify available disk space
+  - Reduce `max_results`
 
-4. **Program seems stuck:**
-   - ArXiv has rate limits
-   - For large downloads, be patient
-   - Try reducing `max_results`
+#### Performance Issues
+- **Program seems slow:**
+  - Consider ArXiv rate limits
+  - Be patient with large downloads
+  - Reduce `max_results`
 
-### ⚠️ AI-summarizer Troubleshooting
+### 🤖 AI Summarizer Issues
 
-1. **"API Key Invalid" error:**
-   - Check if GEMINI_API_KEY is correctly set in .env
-   - Verify API key permissions
-   - Ensure key hasn't expired
+#### API Issues
+- **"API Key Invalid" error:**
+  - Verify GEMINI_API_KEY in `.env`
+  - Check API key permissions
+  - Confirm key validity
 
-2. **Rate Limit Issues:**
-   - Increase rate_limit_delay in config
-   - Process fewer papers at once
-   - Check Gemini API quotas
+#### Rate Limiting
+- **Rate Limit Issues:**
+  - Increase `rate_limit_delay`
+  - Reduce batch size
+  - Monitor API quotas
 
-3. **Summary Quality:**
-   - Adjust your prompt for better results
-   - Try different max_length values
-   - Use more specific instructions
+#### Output Quality
+- **Summary Quality:**
+  - Refine prompts
+  - Adjust `max_length`
+  - Use specific instructions
 
-## 📫 Need Help?
+## 📫 Support
 
-- 🐛 Found a bug? Open an issue on GitHub
-- 💡 Have a suggestion? I'd love to hear it!
-- 🤝 Want to contribute? You're more then welcome!
+- 🐛 Report bugs via GitHub Issues
+- 💡 Share suggestions for improvement
+- 🤝 Contributions welcome!
 
 ## 📜 License
 
-MIT License - Feel free to use and modify!
+MIT License - Free to use and modify!
