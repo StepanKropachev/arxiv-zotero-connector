@@ -49,7 +49,7 @@ Open your terminal/command prompt and run these commands:
 ```bash
 # 1. Get the code
 git clone https://github.com/StepanKropachev/Arxiv-Zotero-Connector.git
-cd arxiv-zotero-connector
+cd Arxiv-Zotero-Connector
 
 # 2. Create a virtual environment
 python -m venv .venv
