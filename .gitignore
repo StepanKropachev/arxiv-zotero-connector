@@ -134,3 +134,16 @@ env/
 *.egg-info/
 dist/
 build/
+
+# Test environments
+test_env/
+test_final/
+test_real_pypi/
+test_pypi_clean/
+test_from_testpypi/
+test_install/
+
+# Distribution files
+dist/
+build/
+*.egg-info/
