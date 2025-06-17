@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 import asyncio
+import sys
 import argparse
 import logging
 from datetime import datetime
@@ -8,10 +9,10 @@ from typing import Optional
 import yaml
 import pytz
 
-from src.core.connector import ArxivZoteroCollector
-from src.core.search_params import ArxivSearchParams
-from src.utils.credentials import load_credentials, CredentialsError
-from src.utils.summarizer import PaperSummarizer
+from .core.connector import ArxivZoteroCollector
+from .core.search_params import ArxivSearchParams
+from .utils.credentials import load_credentials, CredentialsError
+from .utils.summarizer import PaperSummarizer
 
 # Configure logging
 logging.basicConfig(
@@ -110,7 +111,7 @@ def parse_arguments():
     
     return parser.parse_args()
 
-async def main():
+async def async_main():
     """Main entry point for the application"""
     args = parse_arguments()
     collector = None
@@ -172,6 +173,13 @@ async def main():
     
     return 0 if failed == 0 else 1
 
+
+
+def main():
+    """Main entry point for the CLI"""
+    exit_code = asyncio.run(async_main())
+    sys.exit(exit_code)
+
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
-    exit(exit_code)
+    main()
+

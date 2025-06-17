@@ -1,101 +1,100 @@
-# 📚 ArXiv-Zotero Connector with AI Summarization
+# ArXiv-Zotero Connector
 
-Automatically collect papers from ArXiv and organize them in your Zotero library with AI-powered paper summarization! Perfect for researchers, students, and academics who want to keep their paper collections and references organized.
+[![Python Version](https://img.shields.io/pypi/pyversions/arxiv-zotero-connector)](https://pypi.org/project/arxiv-zotero-connector/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI Version](https://img.shields.io/pypi/v/arxiv-zotero-connector)](https://pypi.org/project/arxiv-zotero-connector/)
 
-## ✨ Features
+Automatically download, organize, and summarize arXiv papers directly into your Zotero library with AI-powered insights.
 
-- 🔍 Search ArXiv papers using keywords, authors, or categories
-- 📥 Automatically download PDFs
-- 🤖 AI-powered summarization of papers
-- 📝 Add papers to Zotero with complete metadata
-- 📁 Organize papers into collections
-- 📅 Filter papers by date range
-- 🎯 Search specific types of content (journals, conference papers, preprints)
+## 🚀 Features
 
-## 🚀 Getting Started
+- **Smart Search**: Search arXiv by keywords, authors, categories, or date ranges
+- **Auto-Download**: Automatically download paper PDFs and attach them to Zotero entries
+- **AI Summarization**: Generate concise summaries using Google's Gemini AI (optional)
+- **Metadata Extraction**: Preserve complete paper metadata including authors, abstract, and publication details
+- **Collection Support**: Organize papers into specific Zotero collections
+- **Flexible Filtering**: Filter by journal papers, conference proceedings, or preprints
+- **Batch Processing**: Process multiple papers efficiently with progress tracking
 
-### 1️⃣ Set Up
+## 📋 Requirements
 
-1. Install Python (version 3.7 or newer)
-   - Download from [Python's website](https://www.python.org/downloads/)
-   - During installation, check "Add Python to PATH"
+- Python 3.7 or higher
+- Zotero account with API access
+- Internet connection for downloading papers
+- Google AI API key (optional, for summarization features)
 
-2. Install Git
-   - Download from [Git's website](https://git-scm.com/downloads)
+## 🔧 Installation
 
-### 2️⃣ Get Your Zotero Credentials 🔑
-
-1. Get your Zotero Library ID:
-   - Visit [Zotero Settings](https://www.zotero.org/settings/)
-   - Navigate to "Feed Settings"
-   - Find "Your user ID for use in API calls is XXXXXX"
-
-2. Create your API Key:
-   - In Zotero Settings, go to "API Settings"
-   - Click "Create new private key"
-   - Enable all permissions
-   - Click "Save Key"
-   - Copy the generated key
-
-3. (Optional) Get a Collection Key:
-   - Open your Zotero library in a web browser
-   - Select the desired collection (folder)
-   - The collection key is the last part of the URL (format: "XXX1XXX0")
-
-### 3️⃣ Install the Connector
-
-Open your terminal/command prompt and run:
+### Install from PyPI
 
 ```bash
-# 1. Clone the repository
+pip install arxiv-zotero-connector
+```
+
+### Install from GitHub
+
+```bash
+pip install git+https://github.com/StepanKropachev/arxiv-zotero-connector.git
+```
+
+### Development Installation
+
+```bash
 git clone https://github.com/StepanKropachev/arxiv-zotero-connector.git
 cd arxiv-zotero-connector
-
-# 2. Create a virtual environment
-python -m venv .venv
-
-# 3. Activate the environment
-# On Windows:
-.\.venv\Scripts\activate
-# On Mac/Linux:
-source .venv/bin/activate
-
-# 4. Install dependencies
-pip install -r requirements.txt
+pip install -e .
 ```
 
-### 4️⃣ Configure Your Credentials
+## ⚙️ Configuration
 
-1. Create a `.env` file in the project folder
-2. Add your credentials:
-```
+### 1. Get Zotero Credentials
+
+1. **Library ID**: Visit [Zotero Settings](https://www.zotero.org/settings/keys) → Your user ID for API calls
+2. **API Key**: 
+   - Go to [Zotero Settings](https://www.zotero.org/settings/keys) → New Private Key
+   - Grant all permissions and save the key
+3. **Collection Key** (optional): 
+   - Open your Zotero web library
+   - Navigate to desired collection
+   - Copy the key from the URL: `.../collections/XXXXXXXX`
+
+### 2. Create Configuration File
+
+Create a `.env` file in your working directory:
+
+```env
 ZOTERO_LIBRARY_ID=your_library_id
 ZOTERO_API_KEY=your_api_key
 COLLECTION_KEY=your_collection_key  # Optional
+GOOGLE_API_KEY=your_gemini_api_key  # Optional, for AI summaries
 ```
 
-## 📖 Usage Methods
+## 📖 Usage
 
-### 1️⃣ Command Line Interface (CLI)
+### Command Line Interface
 
-Search for papers about "machine learning" in computer science:
+Basic search:
 ```bash
-python main.py --keywords "machine learning" --categories cs.AI --max-results 10
+arxiv-zotero --keywords "machine learning" --max-results 10
 ```
 
-Search for recent papers by a specific author:
+Advanced search with filters:
 ```bash
-python main.py --author "John Smith" --start-date 2024-01-01
+arxiv-zotero \
+  --keywords "transformer" "attention" \
+  --categories cs.AI cs.LG \
+  --start-date 2023-01-01 \
+  --max-results 20
 ```
 
-Download papers without PDFs:
+Search by author:
 ```bash
-python main.py --keywords "deep learning" --no-pdf
+arxiv-zotero --author "Yoshua Bengio" --start-date 2023-06-01
 ```
 
-### 2️⃣ Configuration File
+### Configuration File
 
-1. Create `my_search.yaml`:
+Create `search_config.yaml`:
 ```yaml
 keywords:
   - "reinforcement learning"
@@ -103,206 +102,182 @@ keywords:
 categories:
   - "cs.AI"
   - "cs.LG"
-max_results: 20
-start_date: "2024-01-01"
+max_results: 50
+start_date: "2023-01-01"
+content_type: "journal"  # journal, conference, or preprint
+
+# AI Summarization settings (optional)
+summarizer:
+  enabled: true
+  prompt: "Summarize this paper in 3 key points"
+  max_length: 300
 ```
 
-2. Run with config:
+Run with config:
 ```bash
-python main.py --config my_search.yaml
+arxiv-zotero --config search_config.yaml
 ```
 
-### 3️⃣ Python API
+### Python API
 
 ```python
-from src.core.connector import ArxivZoteroCollector
-from src.core.search_params import ArxivSearchParams
-from src.utils.credentials import load_credentials
+from arxiv_zotero import ArxivZoteroCollector, ArxivSearchParams
+import asyncio
 
-# Load credentials
-credentials = load_credentials()
+async def main():
+    # Initialize collector
+    collector = ArxivZoteroCollector(
+        zotero_library_id="your_library_id",
+        zotero_api_key="your_api_key",
+        collection_key="optional_collection_key"
+    )
+    
+    # Configure search
+    search_params = ArxivSearchParams(
+        keywords=["quantum computing", "quantum algorithms"],
+        categories=["quant-ph", "cs.CC"],
+        max_results=10,
+        start_date=datetime(2023, 1, 1)
+    )
+    
+    # Run collection
+    successful, failed = await collector.run_collection_async(
+        search_params=search_params,
+        download_pdfs=True
+    )
+    
+    print(f"Processed {successful} papers successfully, {failed} failed")
 
-# Create collector
-collector = ArxivZoteroCollector(
-    zotero_library_id=credentials['library_id'],
-    zotero_api_key=credentials['api_key'],
-    collection_key=credentials['collection_key']  # Optional
-)
-
-# Configure search
-search_params = ArxivSearchParams(
-    keywords=["artificial intelligence"],
-    categories=["cs.AI"],
-    max_results=10
-)
-
-# Run collection
-successful, failed = await collector.run_collection_async(
-    search_params=search_params,
-    download_pdfs=True
-)
+asyncio.run(main())
 ```
 
-## 🎛️ Search Options
+## 🎯 Examples
 
-- `--keywords` or `-k`: Search terms
-- `--title` or `-t`: Search in titles only
-- `--categories` or `-c`: ArXiv categories
-- `--author` or `-a`: Author name
-- `--start-date`: Start date (YYYY-MM-DD)
-- `--end-date`: End date (YYYY-MM-DD)
-- `--max-results` or `-m`: Maximum papers to retrieve
-- `--no-pdf`: Skip PDF downloads
-
-## 📑 Popular ArXiv Categories
-
-- `cs.AI`: Artificial Intelligence
-- `cs.LG`: Machine Learning
-- `cs.CL`: Computation and Language
-- `cs.CV`: Computer Vision
-- `physics.comp-ph`: Computational Physics
-- `math.NA`: Numerical Analysis
-- `q-bio`: Quantitative Biology
-
-## 🤖 AI Paper Summarizer
-
-### 🔑 Setup Instructions
-
-1. Get your Gemini API Key:
-   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Create a new API key
-   - Add to `.env`:
-   ```
-   GOOGLE_API_KEY=your_api_key
-   ```
-
-2. Configure in `my_search.yaml`:
-   ```yaml
-   summarizer:
-     enabled: true
-     prompt: "Your custom prompt here"
-     max_length: 300
-     rate_limit_delay: 5
-   ```
-
-### ⚙️ Summarizer Options
-
-- `--summarizer-enabled`: Toggle summarization
-- `--summarizer-prompt`: Custom AI prompt
-- `--summary-length`: Maximum summary length
-- `--rate-limit`: API request delay (seconds)
-
-## 🎯 Example Use Cases
-
-### 📚 Research Examples
-
-#### Literature Review
+### Literature Review
 ```bash
-python main.py \
-  --keywords "survey" "review" "deep learning" \
-  --categories cs.AI cs.LG \
-  --start-date 2023-01-01 \
-  --content-type journal
+arxiv-zotero \
+  --keywords "neural architecture search" "AutoML" \
+  --categories cs.LG \
+  --content-type journal \
+  --start-date 2022-01-01 \
+  --max-results 100
 ```
 
-#### Latest Research
+### Conference Papers
 ```bash
-python main.py \
-  --keywords "transformer" "attention mechanism" \
-  --categories cs.CL \
-  --start-date 2024-01-01 \
-  --max-results 20
-```
-
-#### Conference Papers
-```bash
-python main.py \
-  --keywords "reinforcement learning" \
+arxiv-zotero \
+  --keywords "ICLR" "NeurIPS" \
   --content-type conference \
-  --start-date 2023-06-01 \
-  --end-date 2024-01-01
+  --start-date 2023-01-01
 ```
 
-### 🤖 Summarizer Examples
-
-#### Simple Explanations
+### Papers Without PDFs
 ```bash
-python main.py \
-  --keywords "quantum computing" \
-  --summarizer-prompt "Explain this research paper as if you're talking to a high school student" \
-  --max-results 5
+arxiv-zotero --keywords "quantum" --no-pdf --max-results 50
 ```
 
-#### Multilingual Summaries
+## 🤖 AI Summarization
+
+Enable AI-powered paper summaries by adding your Google AI API key:
+
 ```bash
-python main.py \
-  --keywords "machine learning" \
-  --summarizer-prompt "Summarize this paper in Russian, focusing on methodology and results" \
-  --max-results 3
+arxiv-zotero \
+  --keywords "large language models" \
+  --summarizer-enabled \
+  --summarizer-prompt "Explain this paper's contribution in simple terms" \
+  --summary-length 500
 ```
 
-#### Social Media Briefs
+## 📚 ArXiv Categories
+
+Common categories include:
+- **cs.AI**: Artificial Intelligence
+- **cs.LG**: Machine Learning
+- **cs.CL**: Computation and Language
+- **cs.CV**: Computer Vision
+- **stat.ML**: Machine Learning (Statistics)
+- **math.OC**: Optimization and Control
+- **quant-ph**: Quantum Physics
+
+Full list: [arXiv Category Taxonomy](https://arxiv.org/category_taxonomy)
+
+## 🛠️ Advanced Features
+
+### Custom Metadata Fields
+
+The tool preserves:
+- Title, authors, abstract
+- Publication date and journal references
+- ArXiv ID and categories
+- DOI (when available)
+- Comments and version info
+
+### Rate Limiting
+
+The tool respects arXiv's rate limits automatically. For large batch operations, consider using:
 ```bash
-python main.py \
-  --keywords "artificial intelligence" "ethics" \
-  --summarizer-prompt "Create a Twitter-style thread (5 tweets max) explaining the key findings" \
-  --start-date 2024-01-01
+arxiv-zotero --keywords "your search" --rate-limit 5
 ```
 
-## ❓ Troubleshooting
+### Error Handling
 
-### 🔧 Common Issues
+Failed downloads are logged and can be retried:
+- Check `arxiv_zotero.log` for details
+- Papers are processed independently
+- Partial failures don't stop the entire batch
 
-#### Command Line Issues
-- **"Command not found" error:**
-  - Verify correct directory
-  - Confirm Python installation
-  - Try `python3` instead of `python`
+## 🐛 Troubleshooting
 
-#### Authentication Issues
-- **Credentials not working:**
-  - Verify Library ID and API key
-  - Check `.env` file formatting
-  - Confirm API permissions
+### Common Issues
 
-#### Download Issues
-- **Downloads failing:**
-  - Check internet connection
-  - Verify available disk space
-  - Reduce `max_results`
+1. **"Collection not found"**: Verify your collection key or remove it to use the main library
+2. **"API key invalid"**: Check your Zotero API key has proper permissions
+3. **Import errors**: Ensure all dependencies are installed: `pip install -r requirements.txt`
+4. **PDF download fails**: Check your internet connection and disk space
 
-#### Performance Issues
-- **Program seems slow:**
-  - Consider ArXiv rate limits
-  - Be patient with large downloads
-  - Reduce `max_results`
+### Debug Mode
 
-### 🤖 AI Summarizer Issues
+For detailed logging:
+```python
+import logging
+logging.getLogger('arxiv_zotero').setLevel(logging.DEBUG)
+```
 
-#### API Issues
-- **"API Key Invalid" error:**
-  - Verify GEMINI_API_KEY in `.env`
-  - Check API key permissions
-  - Confirm key validity
+## 🤝 Contributing
 
-#### Rate Limiting
-- **Rate Limit Issues:**
-  - Increase `rate_limit_delay`
-  - Reduce batch size
-  - Monitor API quotas
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-#### Output Quality
-- **Summary Quality:**
-  - Refine prompts
-  - Adjust `max_length`
-  - Use specific instructions
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 📫 Support
+## 📄 License
 
-- 🐛 Report bugs via GitHub Issues
-- 💡 Share suggestions for improvement
-- 🤝 Contributions welcome!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📜 License
+## 🙏 Acknowledgments
 
-MIT License - Free to use and modify!
+- [arXiv API](https://arxiv.org/help/api) for providing access to paper metadata
+- [Zotero](https://www.zotero.org/) for the excellent reference management platform
+- [Google Gemini](https://deepmind.google/technologies/gemini/) for AI summarization capabilities
+
+## 📬 Support
+
+- 📧 Email: your-email@example.com
+- 🐛 Issues: [GitHub Issues](https://github.com/StepanKropachev/arxiv-zotero-connector/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/StepanKropachev/arxiv-zotero-connector/discussions)
+
+## 📈 Changelog
+
+### Version 0.1.0 (2024-06-17)
+- Initial release
+- Core functionality for searching and collecting arXiv papers
+- Zotero integration with metadata preservation
+- AI-powered summarization support
+- Command-line interface and Python API
+
+---
+
+Made with ❤️ by [Stepan Kropachev](https://github.com/StepanKropachev)
