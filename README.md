@@ -263,12 +263,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Zotero](https://www.zotero.org/) for the excellent reference management platform
 - [Google Gemini](https://deepmind.google/technologies/gemini/) for AI summarization capabilities
 
-## 📬 Support
-
-- 📧 Email: kropachev.st@gmail.com
-- 🐛 Issues: [GitHub Issues](https://github.com/StepanKropachev/arxiv-zotero-connector/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/StepanKropachev/arxiv-zotero-connector/discussions)
-
 ## 📈 Changelog
 
 ### Version 0.1.0 (2024-06-17)
