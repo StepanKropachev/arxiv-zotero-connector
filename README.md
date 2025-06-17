@@ -265,7 +265,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📬 Support
 
-- 📧 Email: your-email@example.com
+- 📧 Email: kropachev.st@gmail.com
 - 🐛 Issues: [GitHub Issues](https://github.com/StepanKropachev/arxiv-zotero-connector/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/StepanKropachev/arxiv-zotero-connector/discussions)
 
