@@ -127,3 +127,10 @@ env/
 *.egg-info/
 dist/
 build/
+
+test_env/
+venv/
+env/
+*.egg-info/
+dist/
+build/
